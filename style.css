@@ -107,6 +107,7 @@ nav ul li.dropdown:hover .dropdown-content {
     height: 150px;
     object-fit: cover;
     display: block;
+    margin: 0 auto 8px;
     border-radius: 8px;
     transition: transform 0.2s;
 }
@@ -121,24 +122,20 @@ nav ul li.dropdown:hover .dropdown-content {
     color: white;
 }
 
-.explore a {
-    color: lime;
-    text-decoration: none;
-}
-
-.explore a:hover {
-    text-decoration: underline;
-}
-
-.featured-games a {
-    color: lime;
-    text-decoration: none;
-}
-
-.featured-games a:hover {
-    text-decoration: underline;
-}
-
 .game-card:hover {
     transform: scale(1.05);
+}
+
+.contact-cta a {
+    font-weight: bold;
+}
+
+/* Main content links styling */
+main a {
+    color: lime;
+    text-decoration: none;
+}
+
+main a:hover {
+    text-decoration: underline;
 }

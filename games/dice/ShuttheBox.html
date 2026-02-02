@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shut the Box: Casino Edition</title>
+    <style>
+        :root {
+            /* Theme Variables */
+            --bg-color: #1a1a1a;
+            --table-color: #35654d; /* Classic Poker Green */
+            --table-dark: #1e3b2d;
+            --rail-color: #3e2723; /* Mahogany Wood */
+            --rail-highlight: #5d4037;
+            --accent-gold: #ffbd2e;
+            --accent-red: #e74c3c;
+            --accent-blue: #3498db;
+            --text-main: #ffffff;
+            --text-muted: #aab7b8;
+            --tile-open: #f0f0f0;
+            --tile-shut: #222222;
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        /* Dark Mode / Table Theme Classes */
+        body.theme-blue { --table-color: #2c3e50; --table-dark: #1a2530; }
+        body.theme-red { --table-color: #581b1b; --table-dark: #331010; }
+        body.theme-black { --table-color: #222; --table-dark: #111; }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- Header & Top Bar --- */
+        header {
+            width: 100%;
+            height: 60px;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #111;
+            border-bottom: 2px solid #333;
+            z-index: 20;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .brand {
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-gold);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .brand span { color: #fff; opacity: 0.7; font-size: 0.8em; }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.6);
+            padding: 5px 15px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stat-label { color: var(--text-muted); font-size: 0.8em; text-transform: uppercase; }
+        .stat-value { color: var(--accent-gold); font-weight: bold; }
+
+        /* Navigation Buttons */
+        .nav-btn {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-muted);
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .nav-btn:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.1); }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 0 10px;
+        }
+        .settings-btn:hover { color: #fff; }
+
+        /* --- Main Game Area --- */
+        main {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* The Poker Table - Full Screen with Wood Rail */
+        .game-board {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, var(--table-color) 20%, var(--table-dark) 100%);
+            background-color: var(--table-color);
+            border-top: 20px solid var(--rail-color);
+            border-bottom: 20px solid var(--rail-color);
+            border-left: 20px solid var(--rail-color);
+            border-right: 20px solid var(--rail-color);
+            box-shadow: 
+                inset 0 0 0 2px rgba(255,255,255,0.05),
+                inset 0 0 100px rgba(0,0,0,0.8);
+            
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Changed from justify-center to allow top-margin pushing */
+            position: relative;
+        }
+
+        /* Watermark */
+        .game-board::before {
+            content: "SHUT THE BOX";
+            position: absolute;
+            top: 60%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-10deg);
+            font-size: 6vw;
+            font-weight: 900;
+            color: rgba(0,0,0,0.1);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Bot Info Panel - Integrated into Table */
+        .bot-hud {
+            display: flex;
+            gap: 40px;
+            width: 100%;
+            justify-content: center;
+            align-items: flex-start;
+            position: absolute;
+            top: 30px; 
+            z-index: 5;
+            min-height: 90px;
+        }
+        
+        .bot-hud.hidden { display: none; }
+
+        .player-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0.5;
+            transition: opacity 0.3s, transform 0.3s;
+            position: relative;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+            min-width: 110px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .player-badge.current { 
+            opacity: 1; 
+            transform: scale(1.05); 
+            background: rgba(0,0,0,0.5); 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4); 
+            border: 1px solid var(--accent-gold); 
+        }
+        .player-badge.current .avatar { border-color: var(--accent-gold); box-shadow: 0 0 15px var(--accent-gold); }
+        
+        .avatar {
+            width: 45px; height: 45px; border-radius: 50%; background: #222; border: 2px solid #555;
+            display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 1em;
+            color: #fff;
+            margin-bottom: 5px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .p-name { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #ccc; font-weight: bold;}
+
+        /* Score Display in Badge */
+        .score-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.8rem;
+            color: #aaa;
+            gap: 8px;
+        }
+        .score-val { color: #fff; font-weight: bold; }
+        .score-total { color: var(--accent-gold); }
+
+        /* Payout Card */
+        .payout-card {
+            position: absolute;
+            left: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 160px;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            z-index: 5;
+            backdrop-filter: blur(2px);
+        }
+        .payout-card-title {
+            color: var(--accent-gold);
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 8px;
+            margin-bottom: 5px;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+        .payout-row { display: flex; justify-content: space-between; width: 100%; color: #ddd; }
+        .win-gold { color: var(--accent-gold); font-weight: bold; }
+        .win-red { color: var(--accent-red); font-weight: bold; }
+
+        /* Pot Display on Table */
+        .pot-container {
+            position: absolute;
+            top: 150px; /* Below HUD */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 30px;
+            padding: 8px 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent-gold);
+            font-weight: bold;
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 2;
+        }
+        .chip-icon {
+            width: 24px; height: 24px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+            border: 3px dashed #b5851d;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* --- Tiles Section --- */
+        .tiles-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            z-index: 1;
+            perspective: 800px;
+            margin-top: 220px; /* Pushed down to clear the Pot Container */
+        }
+        
+        @media (max-width: 900px) {
+            .payout-card { display: none !important; }
+            .tiles-container { gap: 8px; }
+        }
+
+        .tile {
+            width: 65px;
+            height: 100px;
+            background: var(--tile-open);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 
+                0 4px 0 #bbb,
+                0 10px 20px rgba(0,0,0,0.4);
+            transition: transform 0.2s, background 0.2s;
+            transform-origin: bottom center;
+        }
+
+        .tile:hover:not(.shut):not(.disabled) {
+            transform: translateY(-8px);
+        }
+
+        .tile.selected {
+            background: var(--accent-gold);
+            color: #000;
+            box-shadow: 0 4px 0 #cca300, 0 8px 25px rgba(255, 189, 46, 0.5);
+            transform: translateY(-12px);
+        }
+
+        .tile.shut {
+            background: rgba(0,0,0,0.2);
+            color: rgba(255,255,255,0.05);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+            transform: rotateX(80deg);
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.02);
+        }
+
+        /* --- Dice Area --- */
+        .dice-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 50px;
+            height: 120px;
+            z-index: 1;
+            margin-top: 60px;
+        }
+
+        .dice-sum {
+            background: rgba(0,0,0,0.4);
+            padding: 10px 25px;
+            border-radius: 20px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.3rem;
+            min-width: 150px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            line-height: 1.2;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .dice-sum span { color: var(--accent-gold); margin-left: 5px; font-size: 1.4em;}
+        .dice-sum small { font-size: 0.7em; color: var(--text-muted); font-weight: normal; margin-top: 2px;}
+
+        .dice-container {
+            display: flex;
+            gap: 20px;
+        }
+
+        .die {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #fff 0%, #eee 100%);
+            border-radius: 12px;
+            box-shadow: 
+                inset 0 0 5px rgba(0,0,0,0.1),
+                0 8px 15px rgba(0,0,0,0.4);
+            display: grid;
+            grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+            padding: 8px;
+            position: relative;
+        }
+
+        .die.rolling {
+            animation: shake 0.5s infinite;
+        }
+
+        .pip {
+            background-color: #222;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            place-self: center;
+            opacity: 0;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .die[data-value="1"] .pip:nth-child(5) { opacity: 1; }
+        .die[data-value="2"] .pip:nth-child(1), .die[data-value="2"] .pip:nth-child(9) { opacity: 1; }
+        .die[data-value="3"] .pip:nth-child(1), .die[data-value="3"] .pip:nth-child(5), .die[data-value="3"] .pip:nth-child(9) { opacity: 1; }
+        .die[data-value="4"] .pip:nth-child(1), .die[data-value="4"] .pip:nth-child(3), .die[data-value="4"] .pip:nth-child(7), .die[data-value="4"] .pip:nth-child(9) { opacity: 1; }
+        .die[data-value="5"] .pip:nth-child(1), .die[data-value="5"] .pip:nth-child(3), .die[data-value="5"] .pip:nth-child(5), .die[data-value="5"] .pip:nth-child(7), .die[data-value="5"] .pip:nth-child(9) { opacity: 1; }
+        .die[data-value="6"] .pip:nth-child(1), .die[data-value="6"] .pip:nth-child(3), .die[data-value="6"] .pip:nth-child(4), .die[data-value="6"] .pip:nth-child(6), .die[data-value="6"] .pip:nth-child(7), .die[data-value="6"] .pip:nth-child(9) { opacity: 1; }
+
+
+        /* --- Controls --- */
+        .controls-area {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 30px;
+            z-index: 2;
+        }
+
+        button {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            outline: none;
+            letter-spacing: 1px;
+        }
+
+        button:active { transform: translateY(2px); box-shadow: 0 1px 5px rgba(0,0,0,0.3); }
+
+        .btn-roll { background: var(--accent-gold); color: #222; min-width: 160px; }
+        .btn-roll:hover { background: #ffca57; box-shadow: 0 0 15px rgba(255, 189, 46, 0.4); }
+        .btn-roll:disabled { background: #444; color: #777; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .btn-confirm { background: var(--accent-blue); color: #fff; display: none; }
+        .btn-confirm:hover { background: #4aa3df; box-shadow: 0 0 15px rgba(52, 152, 219, 0.4); }
+
+        .btn-end { background: var(--accent-red); color: #fff; }
+        .btn-end:hover { background: #ec7063; }
+
+        /* --- UNIFIED MENU STYLING (Solid Felt Theme) --- */
+        /* Persistent Background for Menu Transitions */
+        #menu-background {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, var(--table-color) 0%, var(--table-dark) 100%);
+            background-color: var(--table-color);
+            z-index: 90;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.7);
+        }
+        #menu-background.visible { opacity: 1; pointer-events: all; }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: transparent; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .overlay.active { opacity: 1; pointer-events: all; }
+
+        .overlay h1 { 
+            font-size: 3.5rem; 
+            margin: 0 0 10px 0; 
+            color: var(--accent-gold); 
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5); 
+        }
+        .overlay p { 
+            font-size: 1.2rem; 
+            margin-bottom: 30px; 
+            text-align: center; 
+            max-width: 500px; 
+            line-height: 1.5; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .payout-table, .bet-control-container, .settings-section {
+            background: rgba(0,0,0,0.25);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: left;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05);
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+
+        .payout-row { display: flex; justify-content: space-between; gap: 40px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .payout-row:last-child { border: none; }
+        .payout-row span:last-child { color: var(--accent-gold); font-weight: bold; }
+
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .menu-btn {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            color: #eee;
+            width: 320px;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        
+        .menu-btn::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; height: 100%; width: 6px;
+            background: var(--accent-gold);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .menu-btn:hover {
+            background: rgba(0,0,0,0.5);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+            transform: translateX(5px);
+        }
+        
+        .menu-btn:hover::before { opacity: 1; }
+
+        /* Betting Controls */
+        .bet-control-container {
+            display: flex; 
+            gap: 20px; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .bet-btn-lg {
+            width: 50px; height: 50px; 
+            font-size: 1.5rem; 
+            background: #222; 
+            color: #fff; 
+            border-radius: 50%;
+            padding: 0;
+            border: 2px solid #444;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .bet-btn-lg:hover { background: #333; border-color: #666; transform: translateY(-2px); }
+        .bet-display-lg {
+            font-size: 2.5rem; 
+            font-weight: bold; 
+            color: var(--accent-gold);
+            min-width: 120px;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* Settings Card Structure */
+        #settings-modal {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+        .settings-card {
+            background: #1a1a1a;
+            border: 2px solid var(--accent-gold);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 400px;
+            position: relative;
+        }
+        .settings-card h2 {
+            margin-top: 0;
+            font-size: 2rem;
+            color: var(--accent-gold);
+            text-shadow: none;
+            border-bottom: 1px solid #333;
+            width: 100%;
+            text-align: center;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        /* Settings */
+        .color-options { display: flex; gap: 15px; margin-top: 15px; margin-bottom: 25px;}
+        .color-btn { 
+            width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.2); cursor: pointer; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            transition: transform 0.2s;
+        }
+        .color-btn:hover { transform: scale(1.1); border-color: #fff; }
+        .color-btn.green { background: #35654d; }
+        .color-btn.blue { background: #2c3e50; }
+        .color-btn.red { background: #581b1b; }
+        .color-btn.black { background: #222; }
+
+        .settings-section h3 { font-size: 0.9rem; color: var(--accent-gold); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* Toggle Switch CSS */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #222;
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid #444;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent-blue); border-color: var(--accent-blue); }
+        input:focus + .slider { box-shadow: 0 0 1px var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+
+        .radio-btn { 
+            flex: 1; padding: 10px; background: #222; text-align: center; border-radius: 4px; cursor: pointer; border: 1px solid #444;
+            font-size: 0.9rem; color: #888; font-weight: bold;
+        }
+        .radio-btn.selected { background: var(--accent-gold); color: #222; border-color: var(--accent-gold); }
+
+        @keyframes shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(5deg) translate(2px, 2px); }
+            50% { transform: rotate(-5deg) translate(-2px, -2px); }
+            75% { transform: rotate(5deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        /* Message Toast */
+        .toast {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 50;
+            border: 2px solid var(--accent-gold);
+            text-align: center;
+            width: max-content;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 30px; left: 30px;
+            background: none; border: none; color: #aaa; cursor: pointer;
+            font-size: 1.1rem; box-shadow: none; padding: 0;
+            text-transform: none;
+            display: flex; align-items: center; gap: 8px;
+            font-weight: bold;
+        }
+        .back-btn:hover { color: #fff; background: none; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">
+            <div class="brand">Dice Poker <span>EDITION</span></div>
+            <!-- Back to Menu Button -->
+            <button class="nav-btn" onclick="goToMenu()">Menu</button>
+        </div>
+        
+        <div class="stats-bar">
+            <div class="stat-box">
+                <span class="stat-label">Credits</span>
+                <span class="stat-value" id="credits-display">100</span>
+            </div>
+            <button class="settings-btn" onclick="toggleSettings()">⚙</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="game-board">
+            
+            <!-- HUD inside Felt -->
+            <div class="bot-hud hidden" id="bot-hud">
+                
+                <div class="player-badge" id="badge-human">
+                    <div class="avatar" style="background:var(--accent-blue)">You</div>
+                    <div class="p-name">Player</div>
+                    <div class="score-display">
+                        <div class="score-row"><span>RND:</span> <span class="score-val" id="score-human">-</span></div>
+                        <div class="score-row total-row" style="display:none"><span>TOT:</span> <span class="score-val score-total" id="total-human">0</span></div>
+                    </div>
+                </div>
+                <div class="player-badge" id="badge-bot1">
+                    <div class="avatar">C</div>
+                    <div class="p-name">Chip</div>
+                    <div class="score-display">
+                        <div class="score-row"><span>RND:</span> <span class="score-val" id="score-bot1">-</span></div>
+                        <div class="score-row total-row" style="display:none"><span>TOT:</span> <span class="score-val score-total" id="total-bot1">0</span></div>
+                    </div>
+                </div>
+                <div class="player-badge" id="badge-bot2">
+                    <div class="avatar">S</div>
+                    <div class="p-name">Slick</div>
+                    <div class="score-display">
+                        <div class="score-row"><span>RND:</span> <span class="score-val" id="score-bot2">-</span></div>
+                        <div class="score-row total-row" style="display:none"><span>TOT:</span> <span class="score-val score-total" id="total-bot2">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Persistent Payout Chart (MOVED HERE ON THE FELT) -->
+            <div class="payout-card" id="single-payout-card" style="display:none;">
+                <div class="payout-card-title">PAYOUTS</div>
+                <div class="payout-row"><span>0</span> <span class="win-gold">10x</span></div>
+                <div class="payout-row"><span>1-6</span> <span class="win-gold">2x</span></div>
+                <div class="payout-row"><span>7+</span> <span class="win-red">LOSS</span></div>
+            </div>
+
+            <!-- POT DISPLAY ON TABLE -->
+            <div class="pot-container">
+                <div class="chip-icon"></div>
+                <span id="table-pot-label">POT: 10</span>
+            </div>
+
+            <!-- TILES -->
+            <div class="tiles-container" id="tiles-container">
+                <!-- Generated by JS: 1-9 -->
+            </div>
+
+            <!-- DICE -->
+            <div class="dice-area">
+                <div class="dice-container">
+                    <div class="die" id="die1" data-value="1">
+                        <div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                        <div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                        <div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                    </div>
+                    <div class="die" id="die2" data-value="1">
+                        <div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                        <div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                        <div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                    </div>
+                </div>
+                <div class="dice-sum">Target: <span id="target-display">-</span> <small id="turn-indicator"></small></div>
+            </div>
+
+            <!-- CONTROLS -->
+            <div class="controls-area">
+                <button class="btn-roll" id="btn-roll" onclick="rollDice()">ROLL</button>
+                <button class="btn-confirm" id="btn-confirm" onclick="confirmMove()">SHUT TILES</button>
+                <button class="btn-end" id="btn-end" onclick="endRoundEarly()" style="display:none;">GIVE UP</button>
+            </div>
+            
+            <div class="toast" id="toast">Invalid Move!</div>
+
+        </div>
+    </main>
+
+    <!-- PERSISTENT MENU BACKGROUND LAYER (For Smooth Transitions) -->
+    <div id="menu-background" class="visible"></div>
+
+    <!-- MAIN MENU -->
+    <div class="overlay active" id="main-menu">
+        <h1>SHUT THE BOX</h1>
+        <p style="color:var(--text-muted); margin-top:-10px;">CASINO EDITION</p>
+        
+        <div class="menu-container">
+            <button class="menu-btn" onclick="showSinglePlayerSetup()">SINGLE PLAYER</button>
+            <button class="menu-btn" onclick="showBotModeSetup()">VS BOTS</button>
+            <button class="menu-btn" onclick="toggleSettings()">SETTINGS</button>
+        </div>
+        
+        <p style="font-size:0.9rem; color:rgba(255,255,255,0.5); margin-top: 40px;">Current Credits: <span id="menu-credits" style="color:var(--accent-gold); font-weight:bold; font-size:1.1rem;">100</span></p>
+    </div>
+
+    <!-- SINGLE PLAYER SETUP -->
+    <div class="overlay" id="single-setup">
+        <button class="back-btn" onclick="goToMenu()">← MENU</button>
+        <h1>SOLO STAKES</h1>
+        <p>Beat the house payouts. High risk, high reward.</p>
+        
+        <div class="bet-control-container">
+            <button onclick="adjustBet(-10)" class="bet-btn-lg">-</button>
+            <div>
+                <div class="bet-display-lg" id="current-bet">10</div>
+                <div class="potential-win" id="potential-win-display">Win 100 on Perfect Game</div>
+            </div>
+            <button onclick="adjustBet(10)" class="bet-btn-lg">+</button>
+        </div>
+
+        <div class="payout-table">
+            <div class="payout-row"><span>Shut the Box (Score 0)</span> <span>10x Bet</span></div>
+            <div class="payout-row"><span>Score 1 - 6</span> <span>2x Bet</span></div>
+            <div class="payout-row"><span>Score 7+</span> <span style="color:var(--accent-red)">LOSS</span></div>
+        </div>
+
+        <button class="btn-roll" onclick="startSinglePlayer()">DEAL</button>
+    </div>
+
+    <!-- BOT MODE SETUP -->
+    <div class="overlay" id="bot-setup">
+        <button class="back-btn" onclick="goToMenu()">← MENU</button>
+        <h1>VS BOTS</h1>
+        <p id="bot-mode-desc">Winner takes all against 2 Bots.</p>
+        
+        <!-- DYNAMIC CONTENT BASED ON SETTINGS -->
+        <div id="bot-setup-betting">
+             <div class="bet-control-container">
+                <button onclick="adjustBotBet(-10)" class="bet-btn-lg">-</button>
+                <div>
+                    <div class="bet-display-lg" id="bot-current-bet">10</div>
+                    <div class="potential-win" style="color:#aaa;">Ante Amount</div>
+                </div>
+                <button onclick="adjustBotBet(10)" class="bet-btn-lg">+</button>
+            </div>
+
+            <div class="payout-table">
+                <div class="payout-row"><span>Players</span> <span>3 (You + 2 Bots)</span></div>
+                <div class="payout-row"><span>Pot Total</span> <span style="font-size:1.5rem; color:var(--accent-gold)" id="bot-pot-display">30 Credits</span></div>
+            </div>
+        </div>
+
+        <div id="bot-setup-rounds" style="display:none;">
+             <div class="payout-table">
+                <div class="payout-row"><span>Mode</span> <span>Tournament</span></div>
+                <div class="payout-row"><span>Rounds</span> <span id="setup-round-count">3</span></div>
+                <div class="payout-row"><span>Goal</span> <span>Lowest Total Score</span></div>
+            </div>
+        </div>
+
+        <button class="btn-roll" onclick="startBotMode()">START MATCH</button>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div class="overlay" id="game-over-screen">
+        <h1 id="end-title">ROUND OVER</h1>
+        <p id="end-message">You scored X points.</p>
+        <div class="payout-table" id="bot-scores" style="display:none; margin-bottom:20px; width: 100%; max-width: 350px;">
+            <!-- Bot score list -->
+        </div>
+        <p style="font-size: 2rem; color: var(--accent-gold); text-shadow:0 2px 10px rgba(0,0,0,0.5); font-weight:bold;" id="payout-message">+0 Credits</p>
+        <div style="display:flex; gap:15px; margin-top:20px;">
+             <button class="btn-roll" onclick="resetGame()">CONTINUE</button>
+             <button onclick="goToMenu()" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:14px 25px; border-radius:8px; font-weight:bold; cursor:pointer;">MENU</button>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="overlay" id="settings-modal" style="z-index: 200;">
+        <div class="settings-card">
+            <h2>Settings</h2>
+            
+            <div class="settings-section">
+                <h3>Table Appearance</h3>
+                <div class="color-options">
+                    <div class="color-btn green" onclick="setTheme('theme-green')"></div>
+                    <div class="color-btn blue" onclick="setTheme('theme-blue')"></div>
+                    <div class="color-btn red" onclick="setTheme('theme-red')"></div>
+                    <div class="color-btn black" onclick="setTheme('theme-black')"></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>VS Mode Rules</h3>
+                <div class="toggle-row">
+                    <span>Betting Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="btn-toggle-betting-check" checked onchange="toggleVsBetting()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div id="round-settings" style="display:none; margin-top:15px;">
+                    <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:5px;">Rounds (Tournament Mode)</span>
+                    <div class="radio-group">
+                        <div class="radio-btn" onclick="setRounds(1)" id="rnd-1">1</div>
+                        <div class="radio-btn selected" onclick="setRounds(3)" id="rnd-3">3</div>
+                        <div class="radio-btn" onclick="setRounds(5)" id="rnd-5">5</div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="toggleSettings()" style="background:#444; color:#fff; padding: 12px 40px; margin-top:20px; border-radius:8px; font-weight:bold; border:none; box-shadow:0 4px 10px rgba(0,0,0,0.3); cursor: pointer;">CLOSE</button>
+        </div>
+    </div>
+
+    <script>
+        // Game Constants & State
+        let tiles = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let shutTiles = [];
+        let credits = 100;
+        let currentBet = 10;
+        let botAnte = 10; // New variable for dynamic bot bet
+        let diceSum = 0;
+        let selectedTiles = [];
+        let gameMode = 'SINGLE'; // 'SINGLE' or 'BOTS'
+        let gameState = 'MENU'; // MENU, BETTING, ROLLING, SELECTING, BOT_TURN, GAMEOVER
+        
+        // Settings State
+        let vsBettingEnabled = true;
+        let tournamentRounds = 3;
+
+        // Bot Mode Specifics
+        let currentTurnPlayer = 0; // 0=Human, 1=Bot1, 2=Bot2
+        let currentRound = 1;
+        let botScores = { 0: null, 1: null, 2: null }; // Stores scores for current round
+        let botTotals = { 0: 0, 1: 0, 2: 0 }; // Stores total scores across rounds
+        const BOT_NAMES = ["You", "Chip", "Slick"];
+
+        // DOM Elements
+        const tilesContainer = document.getElementById('tiles-container');
+        const die1El = document.getElementById('die1');
+        const die2El = document.getElementById('die2');
+        const targetDisplay = document.getElementById('target-display');
+        const turnIndicator = document.getElementById('turn-indicator');
+        const btnRoll = document.getElementById('btn-roll');
+        const btnConfirm = document.getElementById('btn-confirm');
+        const btnEnd = document.getElementById('btn-end');
+        const creditsDisplay = document.getElementById('credits-display');
+        const toast = document.getElementById('toast');
+        const botHud = document.getElementById('bot-hud');
+        const tablePotLabel = document.getElementById('table-pot-label');
+        const potentialWinDisplay = document.getElementById('potential-win-display');
+        const singlePayoutCard = document.getElementById('single-payout-card');
+        const menuBg = document.getElementById('menu-background');
+
+        /* --- MENU NAVIGATION --- */
+
+        function goToMenu() {
+            // Show menu background FIRST for smooth transition
+            menuBg.classList.add('visible');
+            
+            hideAllOverlays();
+            document.getElementById('main-menu').classList.add('active');
+            document.getElementById('menu-credits').textContent = credits;
+            gameState = 'MENU';
+            botHud.classList.add('hidden');
+        }
+
+        function showSinglePlayerSetup() {
+            menuBg.classList.add('visible');
+            hideAllOverlays();
+            document.getElementById('single-setup').classList.add('active');
+            currentBet = 10;
+            document.getElementById('current-bet').textContent = currentBet;
+            updatePotentialWin();
+        }
+
+        function showBotModeSetup() {
+            menuBg.classList.add('visible');
+            hideAllOverlays();
+            document.getElementById('bot-setup').classList.add('active');
+            
+            // Reset bot bet to 10 on open or keep last? Let's reset for simplicity
+            botAnte = 10;
+            updateBotBetUI();
+
+            // Toggle view based on settings
+            if (vsBettingEnabled) {
+                document.getElementById('bot-setup-betting').style.display = 'block';
+                document.getElementById('bot-setup-rounds').style.display = 'none';
+                document.getElementById('bot-mode-desc').textContent = "Winner takes all against 2 Bots.";
+            } else {
+                document.getElementById('bot-setup-betting').style.display = 'none';
+                document.getElementById('bot-setup-rounds').style.display = 'block';
+                document.getElementById('setup-round-count').textContent = tournamentRounds;
+                document.getElementById('bot-mode-desc').textContent = `Lowest score after ${tournamentRounds} rounds wins.`;
+            }
+        }
+
+        function hideAllOverlays() {
+            document.querySelectorAll('.overlay').forEach(el => el.classList.remove('active'));
+        }
+
+        /* --- SETTINGS LOGIC --- */
+        function toggleVsBetting() {
+            const checkbox = document.getElementById('btn-toggle-betting-check');
+            vsBettingEnabled = checkbox.checked;
+            const roundSettings = document.getElementById('round-settings');
+            
+            if (vsBettingEnabled) {
+                roundSettings.style.display = 'none';
+            } else {
+                roundSettings.style.display = 'block';
+            }
+        }
+
+        function setRounds(n) {
+            tournamentRounds = n;
+            document.querySelectorAll('.radio-btn').forEach(el => el.classList.remove('selected'));
+            document.getElementById(`rnd-${n}`).classList.add('selected');
+        }
+
+        /* --- BETTING LOGIC --- */
+        function adjustBet(amount) {
+            let newBet = currentBet + amount;
+            if (newBet >= 10 && newBet <= credits) {
+                currentBet = newBet;
+                document.getElementById('current-bet').textContent = currentBet;
+                updatePotentialWin();
+            }
+        }
+        
+        function updatePotentialWin() {
+            potentialWinDisplay.textContent = `Win ${currentBet * 10} on Perfect Game`;
+        }
+
+        function adjustBotBet(amount) {
+            let newAnte = botAnte + amount;
+            if (newAnte >= 10 && newAnte <= credits) {
+                botAnte = newAnte;
+                updateBotBetUI();
+            }
+        }
+
+        function updateBotBetUI() {
+            document.getElementById('bot-current-bet').textContent = botAnte;
+            document.getElementById('bot-pot-display').textContent = (botAnte * 3) + " Credits";
+        }
+
+        /* --- GAME START LOGIC --- */
+
+        function startSinglePlayer() {
+            if (credits < currentBet) {
+                alert("Not enough credits!");
+                return;
+            }
+            credits -= currentBet;
+            gameMode = 'SINGLE';
+            hideAllOverlays();
+            menuBg.classList.remove('visible'); // Reveal Board
+            
+            // UI Setup for Single
+            botHud.classList.remove('hidden');
+            singlePayoutCard.style.display = 'flex'; // Show Payout Chart
+            
+            document.getElementById('badge-human').style.display = 'flex';
+            document.getElementById('badge-bot1').style.display = 'none';
+            document.getElementById('badge-bot2').style.display = 'none';
+            document.getElementById('badge-human').classList.add('current');
+            
+            // Hide Total Rows
+            document.querySelectorAll('.total-row').forEach(el => el.style.display = 'none');
+            
+            updateTablePot("BET: " + currentBet);
+            resetBoard();
+            startHumanTurn();
+        }
+
+        function startBotMode() {
+            if (vsBettingEnabled && credits < botAnte) {
+                alert("Not enough credits for Buy-in!");
+                return;
+            }
+
+            if (vsBettingEnabled) {
+                credits -= botAnte;
+                currentBet = botAnte; 
+                updateTablePot("POT: " + (botAnte * 3));
+            } else {
+                currentBet = 0;
+                updateTablePot(`ROUND 1 / ${tournamentRounds}`);
+            }
+
+            gameMode = 'BOTS';
+            
+            // Reset Bot State
+            currentRound = 1;
+            botScores = { 0: null, 1: null, 2: null };
+            botTotals = { 0: 0, 1: 0, 2: 0 };
+            currentTurnPlayer = 0; // Human starts
+
+            hideAllOverlays();
+            menuBg.classList.remove('visible'); // Reveal Board
+            
+            // UI Setup for Bots
+            botHud.classList.remove('hidden');
+            singlePayoutCard.style.display = 'none'; // Hide Payout Chart in Bots Mode
+            
+            document.getElementById('badge-human').style.display = 'flex';
+            document.getElementById('badge-bot1').style.display = 'flex';
+            document.getElementById('badge-bot2').style.display = 'flex';
+            
+            // Show/Hide Totals based on mode
+            const displayStyle = vsBettingEnabled ? 'none' : 'flex';
+            document.querySelectorAll('.total-row').forEach(el => el.style.display = displayStyle);
+            
+            // Reset HUD Values
+            document.querySelectorAll('.score-val').forEach(el => el.textContent = '-');
+            document.querySelectorAll('.score-total').forEach(el => el.textContent = '0');
+
+            updateBotHud();
+            resetBoard();
+            startHumanTurn();
+        }
+
+        function resetBoard() {
+            shutTiles = [];
+            selectedTiles = [];
+            initTiles();
+            updateUI();
+            targetDisplay.textContent = "-";
+            targetDisplay.style.color = "#aaa";
+            turnIndicator.textContent = "";
+            
+            // NOTE: We do NOT reset the HUD text contents here, because we want them to persist
+            // until the specific player starts their turn again.
+        }
+
+        function startHumanTurn() {
+            gameState = 'ROLLING';
+            targetDisplay.textContent = "ROLL TO START";
+            btnRoll.disabled = false;
+            btnRoll.style.display = 'block';
+            btnConfirm.style.display = 'none';
+            btnEnd.style.display = 'none'; 
+            
+            // Clear previous round score visual for human only when they start
+            document.getElementById('score-human').textContent = '-';
+
+            if(gameMode === 'BOTS') {
+                updateBotHud();
+                showToast(vsBettingEnabled ? "Your Turn" : `Round ${currentRound}: Your Turn`);
+            }
+        }
+
+        /* --- GAME LOOP --- */
+
+        function initTiles() {
+            tilesContainer.innerHTML = '';
+            for (let i = 1; i <= 9; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.textContent = i;
+                tile.dataset.value = i;
+                tile.onclick = () => toggleTile(i);
+                tilesContainer.appendChild(tile);
+            }
+        }
+        
+        function rollDice() {
+            if (gameState !== 'ROLLING') return;
+
+            btnRoll.disabled = true;
+            die1El.classList.add('rolling');
+            die2El.classList.add('rolling');
+
+            setTimeout(() => {
+                die1El.classList.remove('rolling');
+                die2El.classList.remove('rolling');
+
+                const d1 = Math.floor(Math.random() * 6) + 1;
+                const d2 = Math.floor(Math.random() * 6) + 1;
+                updateDieVisual(die1El, d1);
+                updateDieVisual(die2El, d2);
+
+                diceSum = d1 + d2;
+                targetDisplay.innerHTML = `${diceSum}`;
+                targetDisplay.style.color = "var(--accent-gold)";
+
+                if (!checkPossibleMove(diceSum)) {
+                    showToast("No Moves! Turn Over.");
+                    setTimeout(() => finishTurn(calculateScore()), 2000);
+                } else {
+                    gameState = 'SELECTING';
+                    btnRoll.style.display = 'none';
+                    btnConfirm.style.display = 'block';
+                }
+
+            }, 600);
+        }
+
+        function confirmMove() {
+            const sum = selectedTiles.reduce((a, b) => a + b, 0);
+            if (sum === diceSum) {
+                shutTiles.push(...selectedTiles);
+                selectedTiles.forEach(val => {
+                    const tileEl = tilesContainer.children[val - 1];
+                    tileEl.classList.remove('selected');
+                    tileEl.classList.add('shut');
+                });
+                selectedTiles = [];
+                
+                if (shutTiles.length === 9) {
+                    finishTurn(0); // Perfect 0
+                } else {
+                    gameState = 'ROLLING';
+                    btnRoll.style.display = 'block';
+                    btnRoll.disabled = false;
+                    btnConfirm.style.display = 'none';
+                    targetDisplay.textContent = "ROLL AGAIN";
+                    targetDisplay.style.color = "#aaa";
+                }
+            } else {
+                showToast(`Selected ${sum}, need ${diceSum}`);
+            }
+        }
+
+        function finishTurn(finalScore) {
+            // Update Score for Current Player visually
+            const scoreIds = ['score-human', 'score-bot1', 'score-bot2'];
+            const totalIds = ['total-human', 'total-bot1', 'total-bot2'];
+            
+            document.getElementById(scoreIds[currentTurnPlayer]).textContent = finalScore;
+
+            if (gameMode === 'SINGLE') {
+                endRoundSingle(finalScore);
+            } else {
+                // Save Score
+                botScores[currentTurnPlayer] = finalScore;
+                
+                // If in Tournament mode, update totals immediately
+                if (!vsBettingEnabled) {
+                    botTotals[currentTurnPlayer] += finalScore;
+                    document.getElementById(totalIds[currentTurnPlayer]).textContent = botTotals[currentTurnPlayer];
+                }
+                
+                currentTurnPlayer++;
+                if (currentTurnPlayer > 2) {
+                    // Round Over
+                    setTimeout(handleEndOfRound, 1000);
+                } else {
+                    // Next Bot
+                    showToast(`${BOT_NAMES[currentTurnPlayer]}'s Turn`);
+                    
+                    // Clear their specific round score for visual clarity that a new turn started
+                    document.getElementById(scoreIds[currentTurnPlayer]).textContent = '-';
+                    
+                    setTimeout(() => {
+                        resetBoard();
+                        startBotTurn(currentTurnPlayer);
+                    }, 1500);
+                }
+            }
+        }
+        
+        function handleEndOfRound() {
+            if (vsBettingEnabled) {
+                // Betting mode is always 1 round
+                endMatchBots();
+            } else {
+                // Tournament Mode
+                if (currentRound < tournamentRounds) {
+                    // Next Round
+                    currentRound++;
+                    updateTablePot(`ROUND ${currentRound} / ${tournamentRounds}`);
+                    showToast(`Round ${currentRound} Starting...`);
+                    
+                    // Reset Turn Order
+                    currentTurnPlayer = 0;
+                    
+                    setTimeout(() => {
+                        resetBoard();
+                        // Clear Human Score specifically for start
+                        document.getElementById('score-human').textContent = '-';
+                        startHumanTurn();
+                    }, 2000);
+                } else {
+                    // Tournament Over
+                    endMatchBots();
+                }
+            }
+        }
+
+        /* --- BOT AI --- */
+
+        function startBotTurn(botIndex) {
+            gameState = 'BOT_TURN';
+            updateBotHud();
+            btnRoll.style.display = 'none';
+            btnConfirm.style.display = 'none';
+            btnEnd.style.display = 'none';
+            botGameStep();
+        }
+
+        function botGameStep() {
+            if (gameState !== 'BOT_TURN') return;
+
+            // Roll delay
+            setTimeout(() => {
+                die1El.classList.add('rolling');
+                die2El.classList.add('rolling');
+
+                // Resolve Roll
+                setTimeout(() => {
+                    die1El.classList.remove('rolling');
+                    die2El.classList.remove('rolling');
+                    const d1 = Math.floor(Math.random() * 6) + 1;
+                    const d2 = Math.floor(Math.random() * 6) + 1;
+                    updateDieVisual(die1El, d1);
+                    updateDieVisual(die2El, d2);
+                    diceSum = d1 + d2;
+                    targetDisplay.innerHTML = `${diceSum}`;
+                    
+                    // Check Moves
+                    let available = tiles.filter(t => !shutTiles.includes(t));
+                    let moves = getAllSubsets(available, diceSum);
+
+                    if (moves.length === 0) {
+                        showToast("Bot Stuck!");
+                        setTimeout(() => finishTurn(calculateScore()), 2000);
+                    } else {
+                        moves.sort((a, b) => Math.max(...b) - Math.max(...a));
+                        let bestMove = moves[0];
+
+                        bestMove.forEach(val => {
+                            tilesContainer.children[val-1].classList.add('selected');
+                        });
+
+                        setTimeout(() => {
+                            shutTiles.push(...bestMove);
+                            bestMove.forEach(val => {
+                                let el = tilesContainer.children[val-1];
+                                el.classList.remove('selected');
+                                el.classList.add('shut');
+                            });
+
+                            if (shutTiles.length === 9) {
+                                finishTurn(0);
+                            } else {
+                                botGameStep(); // Roll Again
+                            }
+                        }, 1000);
+                    }
+
+                }, 600);
+            }, 1000);
+        }
+
+        /* --- END GAME LOGIC --- */
+
+        function endRoundSingle(score) {
+            gameState = 'GAMEOVER';
+            let winnings = 0;
+            let message = "";
+            let payoutTitle = "";
+
+            if (score === 0) {
+                winnings = currentBet * 10;
+                payoutTitle = "JACKPOT!";
+                message = "Perfect Game! Shut the Box!";
+            } else if (score <= 6) {
+                winnings = currentBet * 2;
+                payoutTitle = "WINNER";
+                message = `Good job! Score: ${score}`;
+            } else {
+                winnings = 0;
+                payoutTitle = "HOUSE WINS";
+                message = `Score: ${score}. Try to get 6 or lower.`;
+            }
+
+            credits += winnings;
+            updateUI();
+            showGameOver(payoutTitle, message, winnings, null);
+        }
+
+        function endMatchBots() {
+            gameState = 'GAMEOVER';
+            
+            // Determine scores based on mode
+            let myScore, bot1Score, bot2Score;
+            
+            if (vsBettingEnabled) {
+                myScore = botScores[0];
+                bot1Score = botScores[1];
+                bot2Score = botScores[2];
+            } else {
+                myScore = botTotals[0];
+                bot1Score = botTotals[1];
+                bot2Score = botTotals[2];
+            }
+
+            let scores = [
+                { id: 0, name: "You", score: myScore },
+                { id: 1, name: "Chip", score: bot1Score },
+                { id: 2, name: "Slick", score: bot2Score }
+            ];
+            scores.sort((a,b) => a.score - b.score);
+            
+            let winner = scores[0];
+            let winners = scores.filter(s => s.score === winner.score);
+            
+            let payoutTitle = "";
+            let message = "";
+            let winnings = 0;
+
+            let scoreSummaryHTML = `
+                <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; margin:10px 0; border:1px solid rgba(255,255,255,0.1); width:100%;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:${myScore===winner.score?'var(--accent-gold)':'#fff'}"><span>You:</span> <span>${myScore}</span></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px; color:${bot1Score===winner.score?'var(--accent-gold)':'#fff'}"><span>Chip:</span> <span>${bot1Score}</span></div>
+                    <div style="display:flex; justify-content:space-between; color:${bot2Score===winner.score?'var(--accent-gold)':'#fff'}"><span>Slick:</span> <span>${bot2Score}</span></div>
+                </div>
+            `;
+
+            if (winners.length === 1 && winners[0].id === 0) {
+                if(vsBettingEnabled) {
+                    winnings = (botAnte * 3); // Use botAnte instead of BOT_ANTE constant
+                    payoutTitle = "POT WINNER!";
+                } else {
+                    payoutTitle = "CHAMPION!";
+                    winnings = 0; // No credits in tournament mode
+                }
+                message = "You have the lowest score.";
+            } else if (winners.some(w => w.id === 0)) {
+                 if(vsBettingEnabled) {
+                    winnings = Math.floor((botAnte * 3) / winners.length);
+                    payoutTitle = "SPLIT POT";
+                 } else {
+                     payoutTitle = "TIED MATCH";
+                 }
+                message = "It's a tie!";
+            } else {
+                winnings = 0;
+                payoutTitle = "GAME OVER";
+                message = `${winner.name} wins.`;
+            }
+
+            credits += winnings;
+            updateUI();
+            
+            // Adjust message for No-Betting mode
+            if (!vsBettingEnabled) winnings = -1; // Hack to trigger "No betting text" in showGameOver
+
+            showGameOver(payoutTitle, message, winnings, scoreSummaryHTML);
+        }
+
+        function showGameOver(title, msg, winAmt, extraHTML) {
+            document.getElementById('end-title').textContent = title;
+            document.getElementById('end-message').textContent = msg;
+            
+            const botScoreDiv = document.getElementById('bot-scores');
+            if(extraHTML) {
+                botScoreDiv.style.display = 'block';
+                botScoreDiv.innerHTML = extraHTML;
+            } else {
+                botScoreDiv.style.display = 'none';
+            }
+
+            const pMsg = document.getElementById('payout-message');
+            
+            if (winAmt === -1) {
+                // Tournament Mode (No Betting)
+                pMsg.style.display = 'none';
+            } else {
+                pMsg.style.display = 'block';
+                if (winAmt > 0) {
+                    pMsg.textContent = `+${winAmt} Credits`;
+                    pMsg.style.color = "var(--accent-gold)";
+                } else {
+                    pMsg.textContent = "Lost Stake";
+                    pMsg.style.color = "var(--accent-red)";
+                }
+            }
+            
+            // Ensure background is visible for game over
+            menuBg.classList.add('visible');
+            document.getElementById('game-over-screen').classList.add('active');
+        }
+
+        function resetGame() {
+            if (gameMode === 'SINGLE') {
+                document.getElementById('game-over-screen').classList.remove('active');
+                showSinglePlayerSetup();
+            } else {
+                document.getElementById('game-over-screen').classList.remove('active');
+                showBotModeSetup();
+            }
+        }
+
+        /* --- HELPERS --- */
+
+        function calculateScore() {
+            let s = 0;
+            for(let i=1; i<=9; i++) {
+                if(!shutTiles.includes(i)) s += i;
+            }
+            return s;
+        }
+
+        function getAllSubsets(numbers, target) {
+            let result = [];
+            function find(index, currentSum, currentSubset) {
+                if (currentSum === target) {
+                    result.push([...currentSubset]);
+                    return;
+                }
+                if (currentSum > target || index === numbers.length) return;
+                currentSubset.push(numbers[index]);
+                find(index + 1, currentSum + numbers[index], currentSubset);
+                currentSubset.pop();
+                find(index + 1, currentSum, currentSubset);
+            }
+            find(0, 0, []);
+            return result;
+        }
+
+        function checkPossibleMove(target) {
+            let available = tiles.filter(t => !shutTiles.includes(t));
+            let sub = getAllSubsets(available, target);
+            return sub.length > 0;
+        }
+
+        function updateDieVisual(el, val) {
+            el.dataset.value = val;
+        }
+
+        function toggleTile(val) {
+            if (gameState !== 'SELECTING') return;
+            if (shutTiles.includes(val)) return;
+
+            const tileEl = tilesContainer.children[val - 1];
+            
+            if (selectedTiles.includes(val)) {
+                selectedTiles = selectedTiles.filter(t => t !== val);
+                tileEl.classList.remove('selected');
+            } else {
+                const currentSelectedSum = selectedTiles.reduce((a,b)=>a+b, 0);
+                if (currentSelectedSum + val <= diceSum) {
+                    selectedTiles.push(val);
+                    tileEl.classList.add('selected');
+                } else {
+                    showToast("Too high!");
+                }
+            }
+        }
+
+        function updateUI() {
+            creditsDisplay.textContent = credits;
+        }
+        
+        function updateTablePot(text) {
+            tablePotLabel.textContent = text;
+        }
+
+        function updateBotHud() {
+            document.querySelectorAll('.player-badge').forEach((el, idx) => {
+                if (idx === currentTurnPlayer) el.classList.add('current');
+                else el.classList.remove('current');
+            });
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.style.opacity = 1;
+            toast.style.top = "30%";
+            setTimeout(() => {
+                toast.style.opacity = 0;
+                toast.style.top = "20%";
+            }, 2000);
+        }
+
+        function toggleSettings() {
+            // Ensure background is visible for settings
+            const modal = document.getElementById('settings-modal');
+            
+            if (modal.classList.contains('active')) {
+                modal.classList.remove('active');
+                // Only hide background if we are IN GAME (not in menu)
+                if (gameState !== 'MENU') {
+                   menuBg.classList.remove('visible'); 
+                }
+            } else {
+                menuBg.classList.add('visible');
+                modal.classList.add('active');
+            }
+        }
+
+        function setTheme(themeClass) {
+            document.body.className = themeClass;
+            // toggleSettings(); // Don't auto close, let user close
+        }
+
+        initTiles();
+
+    </script>
+</body>
+</html>
