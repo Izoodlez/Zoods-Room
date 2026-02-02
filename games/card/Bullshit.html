@@ -3,976 +3,1067 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bullshit - Canvas Card Game</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <title>Bullshit (Cheat) - Card Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;900&display=swap');
+
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1a1a1a;
-            color: white;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            height: 100vh;
+            font-family: 'Roboto', sans-serif;
+            background-color: #1e3a29; /* Default Green */
+            background-image: radial-gradient(#264a34 15%, transparent 16%), radial-gradient(#264a34 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
             overflow: hidden;
+            user-select: none;
+            height: 100vh;
+            width: 100vw;
+            transition: background-color 0.5s ease;
         }
-        h1 {
-            font-weight: 700;
-            color: #f0f0f0;
+
+        /* --- Card Styles --- */
+        .card {
+            width: 70px;
+            height: 100px;
+            background-color: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            position: relative;
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, top 0.2s, box-shadow 0.2s;
+            border: 1px solid #ccc;
         }
-        canvas {
-            /* background-color: #064e3b; */ /* Removed: Canvas will draw its own bg */
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            display: block;
+
+        @media (min-width: 768px) {
+            .card { width: 90px; height: 130px; border-radius: 8px; padding: 8px; }
         }
+
+        .card.red { color: #d00; }
+        .card.black { color: #111; }
+
+        .card-corner-top { align-self: flex-start; line-height: 1; text-align: center; }
+        .card-corner-bottom { align-self: flex-end; transform: rotate(180deg); line-height: 1; text-align: center; }
+        .card-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; }
+
+        /* Card Selection State */
+        .card.selected {
+            transform: translateY(-20px);
+            box-shadow: 0 0 10px 4px rgba(255, 215, 0, 0.6);
+            border-color: gold;
+            z-index: 10;
+        }
+
+        /* --- Card Backs --- */
+        .card-back {
+            background-color: #3b82f6;
+            width: 100%;
+            height: 100%;
+            border-radius: 5px;
+            border: 2px solid white;
+        }
+
+        /* Patterns */
+        .pattern-classic {
+            background: repeating-linear-gradient(45deg, #cc2e2e, #cc2e2e 5px, #ffffff 5px, #ffffff 10px);
+        }
+        .pattern-blue {
+            background: repeating-linear-gradient(45deg, #1e40af, #1e40af 5px, #3b82f6 5px, #3b82f6 10px);
+        }
+        .pattern-geometric {
+            background-color: #111;
+            background-image: radial-gradient(white 15%, transparent 16%), radial-gradient(white 15%, transparent 16%);
+            background-size: 10px 10px;
+            background-position: 0 0, 5px 5px;
+        }
+        .pattern-luxury {
+            background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+            border: 2px solid #fff;
+        }
+
+        /* --- Player Areas --- */
+        .player-hand {
+            display: flex;
+            justify-content: flex-start; /* Aligned left */
+            align-items: center;
+            height: 160px;
+            margin-top: auto;
+        }
+        
+        .hand-overlap .card {
+            margin-left: -35px; /* Overlap cards */
+        }
+        .hand-overlap .card:first-child { margin-left: 0; }
+        .hand-overlap .card:hover { z-index: 20; transform: translateY(-10px); }
+        .hand-overlap .card.selected:hover { transform: translateY(-30px); }
+
+        /* --- Animations --- */
+        @keyframes deal {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            100% { transform: translate(0, 0) scale(1); opacity: 1; }
+        }
+        .animate-deal { animation: deal 0.5s ease-out forwards; }
+
+        @keyframes throwIn {
+            0% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(1); opacity: 1; }
+        }
+
+        /* --- Badges --- */
+        .player-badge {
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+        .active-player .player-badge {
+            background: rgba(234, 179, 8, 0.9); /* Yellow-500 */
+            color: black;
+            box-shadow: 0 0 15px rgba(234, 179, 8, 0.5);
+            font-weight: bold;
+            transform: scale(1.05);
+        }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            background: rgba(0,0,0,0.85);
+            position: fixed; inset: 0; 
+            z-index: 200; /* Increased to be above Main Menu (z-100) */
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* --- Main Menu --- */
+        #main-menu {
+            position: fixed; inset: 0; z-index: 100;
+            background-color: transparent; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+        }
+        .title-text {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 900;
+            font-size: 5rem;
+            color: #f3f4f6;
+            text-shadow: 4px 4px 0px #000, 8px 8px 0px rgba(0,0,0,0.2);
+            letter-spacing: -2px;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle-text {
+            font-size: 1.5rem;
+            color: #fbbf24;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 3rem;
+        }
+        
+        /* Rank Display Animation */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .pop-anim { animation: pop 0.2s ease-out; }
     </style>
 </head>
-<body>
-    <h1>Bullshit (Canvas Edition)</h1>
-    <canvas id="gameCanvas"></canvas>
+<body class="flex flex-col">
+
+    <!-- Main Menu -->
+    <div id="main-menu">
+        <h1 class="title-text">BULLSHIT</h1>
+        <p class="subtitle-text">The Game of Deception</p>
+        
+        <div class="flex flex-col gap-4 w-64">
+            <button onclick="game.startGame()" class="bg-yellow-500 hover:bg-yellow-400 text-black font-black py-4 px-8 rounded-lg shadow-xl text-xl transform hover:scale-105 transition border-2 border-yellow-300">
+                PLAY GAME
+            </button>
+            <button onclick="toggleModal('settingsModal')" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg border border-gray-600 transition">
+                SETTINGS
+            </button>
+            <button onclick="toggleModal('helpModal')" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg border border-gray-600 transition">
+                HOW TO PLAY
+            </button>
+        </div>
+        
+        <div class="absolute bottom-8 text-white/30 text-sm">
+            v2.4 • Stable Release
+        </div>
+    </div>
+
+    <!-- Navbar (Hidden on Menu) -->
+    <div id="navbar" class="hidden fixed top-0 w-full p-4 flex justify-between items-center z-40 pointer-events-none">
+        <div class="pointer-events-auto">
+            <button onclick="toggleModal('settingsModal')" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg shadow border border-gray-600">
+                <i class="fas fa-cog mr-2"></i> Settings
+            </button>
+            <button onclick="toggleModal('helpModal')" class="ml-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg shadow border border-gray-600">
+                <i class="fas fa-question-circle mr-2"></i> Rules
+            </button>
+        </div>
+        <div class="pointer-events-auto">
+             <button onclick="game.exitToMenu()" class="bg-red-800 hover:bg-red-700 text-white px-4 py-2 rounded-lg shadow border border-red-600">
+                Exit
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Board (Hidden on Menu) -->
+    <div id="game-container" class="hidden relative flex-grow w-full h-full flex flex-col justify-between overflow-hidden p-2">
+        
+        <!-- Opponents Row - Pushed down (mt-24) to avoid navbar collision -->
+        <div class="flex justify-between w-full max-w-5xl mx-auto mt-24 px-4">
+            <!-- Visual Slot 1 (Left) -->
+            <div id="visual-slot-1" class="flex flex-col items-center transition-all duration-300 opacity-80 w-24">
+                <div class="relative w-16 h-24 bg-gray-800 rounded-lg border-2 border-gray-600 shadow-xl flex items-center justify-center mb-2">
+                    <span class="text-2xl text-white font-bold" id="slot-1-count">0</span>
+                    <div class="absolute -top-2 -right-2 bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs text-white border border-white">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="player-badge" id="slot-1-name">Bot 1</div>
+                <div id="slot-1-status" class="h-6 text-sm text-yellow-400 font-bold mt-1"></div>
+            </div>
+
+            <!-- Visual Slot 2 (Top) -->
+            <div id="visual-slot-2" class="flex flex-col items-center transition-all duration-300 opacity-80 w-24">
+                <div class="relative w-16 h-24 bg-gray-800 rounded-lg border-2 border-gray-600 shadow-xl flex items-center justify-center mb-2">
+                    <span class="text-2xl text-white font-bold" id="slot-2-count">0</span>
+                    <div class="absolute -top-2 -right-2 bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs text-white border border-white">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="player-badge" id="slot-2-name">Bot 2</div>
+                <div id="slot-2-status" class="h-6 text-sm text-yellow-400 font-bold mt-1"></div>
+            </div>
+
+            <!-- Visual Slot 3 (Right) -->
+            <div id="visual-slot-3" class="flex flex-col items-center transition-all duration-300 opacity-80 w-24">
+                <div class="relative w-16 h-24 bg-gray-800 rounded-lg border-2 border-gray-600 shadow-xl flex items-center justify-center mb-2">
+                    <span class="text-2xl text-white font-bold" id="slot-3-count">0</span>
+                    <div class="absolute -top-2 -right-2 bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center text-xs text-white border border-white">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                </div>
+                <div class="player-badge" id="slot-3-name">Bot 3</div>
+                <div id="slot-3-status" class="h-6 text-sm text-yellow-400 font-bold mt-1"></div>
+            </div>
+        </div>
+
+        <!-- LAYOUT: Current Requirement (Left Side - More padding left-8) -->
+        <div class="absolute left-60 top-1/2 transform -translate-y-1/2 z-30 pointer-events-none flex flex-col items-start">
+             <div class="bg-black/60 text-white px-6 py-4 rounded-xl backdrop-blur-sm border border-white/20 shadow-2xl text-center pointer-events-auto">
+                <div class="text-xs uppercase tracking-widest text-gray-400 mb-1">Current Rank</div>
+                <div id="current-rank-display" class="text-5xl font-black text-yellow-400 drop-shadow-md">ACE</div>
+            </div>
+        </div>
+
+        <!-- LAYOUT: Action Buttons Area (Bottom Right) -->
+        <div class="absolute right-40 bottom-8 z-40 pointer-events-none flex flex-col items-end">
+             <div id="action-area" class="flex flex-col gap-4 pointer-events-auto items-end">
+                <!-- Buttons injected by JS (Play, Bullshit, Believe) -->
+            </div>
+        </div>
+
+        <!-- Center Area (Pile & Info) - Centered -->
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20 pointer-events-none">
+            
+            <!-- Discard Pile -->
+            <div class="relative w-32 h-44 bg-white/10 border-2 border-dashed border-white/30 rounded-lg flex items-center justify-center pointer-events-auto">
+                <span class="text-white/30 text-sm font-bold uppercase tracking-wider">Discard<br>Pile</span>
+                <div id="pile-container" class="absolute inset-0 w-full h-full">
+                    <!-- Pile cards go here -->
+                </div>
+                <div id="pile-count-badge" class="absolute -top-3 -right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow border border-white hidden">0</div>
+            </div>
+
+            <!-- Action Log / Game Messages -->
+            <div id="game-message" class="mt-4 text-white font-bold text-lg text-center h-8 drop-shadow-md pointer-events-auto bg-black/30 px-4 rounded-full backdrop-blur-sm whitespace-nowrap">
+                Game Started
+            </div>
+
+        </div>
+
+        <!-- User Player Area (Aligned Left) -->
+        <div id="player-0" class="flex flex-col items-start w-full pl-8 mb-4 z-20">
+            <div class="flex flex-col items-center ml-12">
+                <div id="p0-status" class="h-6 text-sm text-yellow-400 font-bold mb-2"></div>
+                <div class="player-badge mb-2">You</div>
+            </div>
+            
+            <!-- Hand -->
+            <div id="user-hand" class="player-hand hand-overlap w-full overflow-x-visible px-40">
+                <!-- User Cards -->
+            </div>
+            
+            <div class="mt-2 text-gray-400 text-xs ml-4">Select 1-4 cards to play</div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- Instructions Modal -->
+    <div id="helpModal" class="hidden modal-overlay">
+        <div class="bg-white text-gray-900 rounded-xl shadow-2xl max-w-lg w-full p-6 mx-4">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800">How to Play "Bullshit"</h2>
+                <button onclick="toggleModal('helpModal')" class="text-gray-500 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="space-y-3 text-sm overflow-y-auto max-h-[60vh]">
+                <p><strong>Objective:</strong> Be the first player to get rid of all your cards.</p>
+                <p><strong>The Flow:</strong></p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>The game proceeds in ranks: Ace, 2, 3, 4... King, Ace...</li>
+                    <li>On your turn, you must play 1 to 4 cards face down.</li>
+                    <li>You must claim these cards match the Current Rank.</li>
+                    <li><strong>Lying:</strong> You can lie! You can play a Jack and claim it's an Ace.</li>
+                </ul>
+                <p><strong>Calling Bullshit:</strong></p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>After a player moves, opponents can call "Bullshit!" if they think the player is lying.</li>
+                    <li>If the player <strong>WAS lying</strong>: They pick up the entire discard pile.</li>
+                    <li>If the player <strong>WAS NOT lying</strong>: The challenger picks up the entire discard pile.</li>
+                </ul>
+                <p><strong>Winning:</strong> The game ends when a player runs out of cards.</p>
+            </div>
+            <div class="mt-6 text-center">
+                <button onclick="toggleModal('helpModal')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="hidden modal-overlay">
+        <div class="bg-white text-gray-900 rounded-xl shadow-2xl max-w-md w-full p-6 mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Settings</h2>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 font-bold mb-2">Opponent Count</label>
+                <div class="flex gap-2">
+                    <button onclick="updateBotCount(1)" id="bot-btn-1" class="flex-1 py-2 px-4 rounded border font-bold text-gray-600 hover:bg-gray-100 transition">1 Bot</button>
+                    <button onclick="updateBotCount(2)" id="bot-btn-2" class="flex-1 py-2 px-4 rounded border font-bold text-gray-600 hover:bg-gray-100 transition">2 Bots</button>
+                    <button onclick="updateBotCount(3)" id="bot-btn-3" class="flex-1 py-2 px-4 rounded border bg-blue-600 text-white font-bold transition">3 Bots</button>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 font-bold mb-2">Table Color</label>
+                <div class="flex gap-2">
+                    <button onclick="setTableColor('green')" class="w-8 h-8 rounded-full bg-green-900 border-2 border-white shadow hover:scale-110 transition"></button>
+                    <button onclick="setTableColor('blue')" class="w-8 h-8 rounded-full bg-blue-900 border-2 border-gray-300 shadow hover:scale-110 transition"></button>
+                    <button onclick="setTableColor('red')" class="w-8 h-8 rounded-full bg-red-900 border-2 border-gray-300 shadow hover:scale-110 transition"></button>
+                    <button onclick="setTableColor('purple')" class="w-8 h-8 rounded-full bg-purple-900 border-2 border-gray-300 shadow hover:scale-110 transition"></button>
+                    <button onclick="setTableColor('black')" class="w-8 h-8 rounded-full bg-gray-900 border-2 border-gray-300 shadow hover:scale-110 transition"></button>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 font-bold mb-2">Card Back Design</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="setCardBack('pattern-classic')" class="flex flex-col items-center p-2 border rounded hover:bg-gray-100">
+                        <div class="w-12 h-16 rounded border pattern-classic mb-2"></div>
+                        <span class="text-xs">Classic Red</span>
+                    </button>
+                    <button onclick="setCardBack('pattern-blue')" class="flex flex-col items-center p-2 border rounded hover:bg-gray-100">
+                        <div class="w-12 h-16 rounded border pattern-blue mb-2"></div>
+                        <span class="text-xs">Classic Blue</span>
+                    </button>
+                    <button onclick="setCardBack('pattern-geometric')" class="flex flex-col items-center p-2 border rounded hover:bg-gray-100">
+                        <div class="w-12 h-16 rounded border bg-black mb-2 pattern-geometric"></div>
+                        <span class="text-xs">Geometric</span>
+                    </button>
+                    <button onclick="setCardBack('pattern-luxury')" class="flex flex-col items-center p-2 border rounded hover:bg-gray-100">
+                        <div class="w-12 h-16 rounded border pattern-luxury mb-2"></div>
+                        <span class="text-xs">Luxury Gold</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="toggleModal('settingsModal')" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="hidden modal-overlay">
+        <div class="bg-white text-gray-900 rounded-xl shadow-2xl max-w-sm w-full p-8 mx-4 text-center transform scale-100 transition-transform">
+            <div id="winner-icon" class="text-6xl mb-4 text-yellow-500">🏆</div>
+            <h2 id="winner-title" class="text-3xl font-extrabold text-gray-800 mb-2">You Win!</h2>
+            <p id="winner-message" class="text-gray-600 mb-6">Congratulations on clearing your hand.</p>
+            <button onclick="game.startGame()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition transform hover:scale-105">Play Again</button>
+            <button onclick="game.exitToMenu()" class="block mt-4 text-gray-500 hover:text-gray-800 text-sm font-bold w-full">Return to Menu</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification (Floating) -->
+    <div id="toast" class="fixed top-24 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-xl opacity-0 transition-opacity duration-300 pointer-events-none z-50 font-bold">
+        Error Message
+    </div>
 
     <script>
-        // --- Setup: Canvas and Context ---
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        // --- Game Constants & Data ---
+        const SUITS = ['♠', '♥', '♣', '♦'];
+        const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        const VALUES = {
+            'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, 
+            '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13
+        };
 
-        // High-DPI screen scaling
-        const dpr = window.devicePixelRatio || 1;
-        const baseWidth = 1000;
-        const baseHeight = 700;
-        canvas.width = baseWidth * dpr;
-        canvas.height = baseHeight * dpr;
-        canvas.style.width = `${baseWidth}px`;
-        canvas.style.height = `${baseHeight}px`;
-        ctx.scale(dpr, dpr);
-
-        // --- Game Constants ---
-        const SUITS = ['♥', '♦', '♣', '♠'];
-        const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-        const CARD_WIDTH = 80;
-        const CARD_HEIGHT = 110;
-        const CARD_OVERLAP = 40; // Overlap for fanned cards
-        const HOVER_ELEVATION = 15; // How much the card elevates on hover
-        const HOVER_FAN_OFFSET = 20; // How much to fan cards out on hover
-        
-        // --- Game State Variables ---
-        let deck = [];
-        let allHands = []; // allHands[0] is player, allHands[1+] are AIs
-        let discardPile = [];
-        let lastPlay = []; // Stores { card, playerLied, claimedRank, playerIndex }
-
-        let currentRankIndex = 0; // Starts with 'A'
-        let currentPlayerIndex = 0; // 0 is player
-        let message = "Starting game... You start with Aces.";
-        let lastMessage = ""; // To show AI's play
-        let gameState = 'START_MENU'; // 'START_MENU', 'SETTINGS_MENU', 'PLAYING', 'GAME_OVER'
-        let showQuitConfirmation = false; // For the quit modal
-
-        // --- Game Settings Variables ---
-        let selectedAINum = 1; // Default
-        let numDecks = 1;
-        let tableColor = '#064e3b';
-        let cardBackColor = '#b91c1c';
-        const tableColors = { 'Green': '#064e3b', 'Blue': '#0f4a7c', 'Red': '#7c0f0f' };
-        const cardBackColors = { 'Red': '#b91c1c', 'Blue': '#2563eb', 'Black': '#1f2937' };
-        let tablePattern = null; // Renamed from feltPattern
-        
-        // --- UPDATED: Texture and Pattern Settings ---
-        const tableTextures = { 'Felt': 'felt', 'Solid': 'solid', 'Wood': 'wood' }; // Added Wood
-        const cardBackPatterns = { 'Stripes': 'stripes', 'Dots': 'dots', 'Hatch': 'crosshatch', 'Circles': 'circles' }; // Added Crosshatch, Circles
-        let selectedTableTexture = 'felt'; // Default
-        let selectedCardBackPattern = 'stripes'; // Default
-        // --- End UPDATED Settings ---
-
-        // --- UI & Interaction ---
-        let clickableAreas = {};
-        let showResolveMessage = null; // To temporarily show BS results
-        let currentHoverCard = null; // Track which card is currently hovered
-        let hoveredButtonKey = null; // Track which UI button is hovered
-        
-
-        // --- Card Class ---
-        class Card {
-            constructor(suit, value) {
-                this.suit = suit;
-                this.value = value;
-                this.rank = VALUES.indexOf(value);
-                this.color = (suit === '♥' || suit === '♦') ? '#d91e18' : '#222';
-                this.selected = false;
-                this.isHovered = false; // New property for hover state
-                
-                this.x = 0; // Clickable x
-                this.y = 0; // Clickable y
-                
-                this.currentX = undefined;
-                this.targetX = 0;
-                this.currentY = undefined;
-                this.targetY = 0;
-                this.currentFanOffset = undefined;
-                this.targetFanOffset = 0;
-            }
-        }
+        const TABLE_COLORS = {
+            green: { bg: '#1e3a29', dot: '#264a34' },
+            blue: { bg: '#0f172a', dot: '#1e293b' },
+            red: { bg: '#450a0a', dot: '#7f1d1d' },
+            purple: { bg: '#3b0764', dot: '#581c87' },
+            black: { bg: '#171717', dot: '#262626' }
+        };
 
         // --- Helper Functions ---
-
-        function lerp(start, end, amt) {
-            const s = Number(start) || 0;
-            const e = Number(end) || 0;
-            return (1 - amt) * s + amt * e;
-        }
-        
-        /** UPDATED: Creates a table pattern based on selected texture */
-        function createTablePattern(color, textureType) {
-            const patternCanvas = document.createElement('canvas');
-            const patternCtx = patternCanvas.getContext('2d');
-            const size = 100; // Increased size slightly for wood grain
-            patternCanvas.width = size;
-            patternCanvas.height = size;
-
-            // Base color
-            patternCtx.fillStyle = color;
-            patternCtx.fillRect(0, 0, size, size);
-
-            // Add texture if not 'solid'
-            if (textureType === 'felt') {
-                // Add noise for felt texture
-                const imageData = patternCtx.getImageData(0, 0, size, size);
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    const noise = Math.random() * 50 - 25;
-                    data[i] = Math.max(0, Math.min(255, data[i] + noise));     // Red
-                    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + noise)); // Green
-                    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + noise)); // Blue
-                }
-                patternCtx.putImageData(imageData, 0, 0);
-            } else if (textureType === 'wood') {
-                 // Simple wood grain effect - draw lines
-                patternCtx.strokeStyle = 'rgba(0, 0, 0, 0.1)'; // Darker shade for grain
-                patternCtx.lineWidth = 1;
-                for (let i = 0; i < size; i += Math.random() * 10 + 5) { // Random spacing
-                    patternCtx.beginPath();
-                    patternCtx.moveTo(0, i + Math.random() * 4 - 2); // Slightly wavy
-                    patternCtx.lineTo(size, i + Math.random() * 4 - 2); // Slightly wavy
-                    patternCtx.stroke();
-                }
-                 // Add subtle knots (darker circles)
-                 patternCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-                 for(let i = 0; i < 3; i++) { // Add a few knots
-                     const knotX = Math.random() * size;
-                     const knotY = Math.random() * size;
-                     const knotRadius = Math.random() * 5 + 3;
-                     patternCtx.beginPath();
-                     patternCtx.arc(knotX, knotY, knotRadius, 0, Math.PI * 2);
-                     patternCtx.fill();
-                 }
-
-            }
-            // --- Add other texture types here ---
-
-            // Create a pattern from this off-screen canvas
-            tablePattern = ctx.createPattern(patternCanvas, 'repeat');
-        }
-        
-        function sortHand(hand) {
-            const validHand = hand.filter(card => card);
-            validHand.sort((a, b) => a.rank - b.rank);
-            const handIndex = allHands.findIndex(h => h === hand);
-            if (handIndex > -1) {
-                allHands[handIndex] = validHand;
+        function toggleModal(id) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
             }
         }
 
-        function createAndShuffleDeck() {
-            deck = [];
-            for (let d = 0; d < numDecks; d++) {
-                for (const suit of SUITS) {
-                    for (const value of VALUES) {
-                        deck.push(new Card(suit, value));
-                    }
-                }
-            }
-            for (let i = deck.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [deck[i], deck[j]] = [deck[j], deck[i]];
-            }
-        }
-
-        function dealCards() {
-            let i = 0;
-            const numTotalPlayers = allHands.length;
-            while (deck.length > 0) {
-                if (allHands[i % numTotalPlayers]) {
-                    allHands[i % numTotalPlayers].push(deck.pop());
-                }
-                i++;
-            }
-            allHands.forEach(hand => {
-                 if(hand) sortHand(hand); 
+        let currentCardBack = 'pattern-classic';
+        function setCardBack(patternClass) {
+            currentCardBack = patternClass;
+            document.querySelectorAll('.card-back').forEach(el => {
+                el.className = `card-back ${patternClass}`;
             });
         }
 
-        function isMouseInRect(mx, my, rect) {
-            if (!rect) return false;
-            return mx > rect.x && mx < rect.x + rect.w && my > rect.y && my < rect.y + rect.h;
+        function setTableColor(color) {
+            const c = TABLE_COLORS[color];
+            if (c) {
+                document.body.style.backgroundColor = c.bg;
+                document.body.style.backgroundImage = `radial-gradient(${c.dot} 15%, transparent 16%), radial-gradient(${c.dot} 15%, transparent 16%)`;
+            }
         }
 
-        function setResolveMessage(msg, duration = 2000) {
-            showResolveMessage = { text: msg, time: Date.now(), duration: duration };
-        }
+        let botCount = 3;
 
-        function wrapText(context, text, x, y, maxWidth, lineHeight) {
-            const words = text.split(' ');
-            let line = '';
-            let currentY = y;
-
-            for (let n = 0; n < words.length; n++) {
-                const testLine = line + words[n] + ' ';
-                const metrics = context.measureText(testLine);
-                const testWidth = metrics.width;
-                if (testWidth > maxWidth && n > 0) {
-                    context.fillText(line.trim(), x, currentY); // Trim trailing space
-                    line = words[n] + ' ';
-                    currentY += lineHeight;
+        function updateBotCount(count) {
+            botCount = count;
+            // Visual update for buttons
+            [1, 2, 3].forEach(i => {
+                const btn = document.getElementById(`bot-btn-${i}`);
+                if (i === count) {
+                    btn.className = "flex-1 py-2 px-4 rounded border bg-blue-600 text-white font-bold transition";
                 } else {
-                    line = testLine;
+                    btn.className = "flex-1 py-2 px-4 rounded border font-bold text-gray-600 hover:bg-gray-100 transition";
                 }
-            }
-            context.fillText(line.trim(), x, currentY); // Trim trailing space
+            });
         }
 
-        /** UPDATED: Draws card back pattern */
-        function drawCardBackPattern(ctx, x, y, width, height, patternType) {
-            // NOTE: Clipping is now handled in drawCard before this is called
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; // Base pattern color
+        function showToast(msg, color = 'bg-red-600') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = `fixed top-24 left-1/2 transform -translate-x-1/2 text-white px-6 py-3 rounded-full shadow-xl opacity-100 transition-opacity duration-300 pointer-events-none z-50 font-bold ${color}`;
+            setTimeout(() => { t.classList.remove('opacity-100'); t.classList.add('opacity-0'); }, 2000);
+        }
 
-            if (patternType === 'stripes') {
-                const stripeHeight = 10;
-                const numStripes = Math.floor((height - 20) / (stripeHeight * 2)) + 1;
-                for (let i = 0; i < numStripes; i++) {
-                    ctx.fillRect(x + 10, y + 10 + i * stripeHeight * 2, width - 20, stripeHeight);
+        // --- Classes ---
+
+        class Card {
+            constructor(suit, rank) {
+                this.suit = suit;
+                this.rank = rank;
+                this.value = VALUES[rank];
+                this.color = (suit === '♥' || suit === '♦') ? 'red' : 'black';
+                this.id = Math.random().toString(36).substr(2, 9);
+            }
+
+            getHTML(faceUp = true) {
+                if (!faceUp) {
+                    return `
+                        <div class="card" id="${this.id}">
+                            <div class="card-back ${currentCardBack}"></div>
+                        </div>
+                    `;
                 }
-            } else if (patternType === 'dots') {
-                const dotRadius = 4;
-                const spacingX = 15; const spacingY = 15;
-                const startX = x + 15; const startY = y + 15;
-                for (let row = 0; startY + row * spacingY < y + height - 10; row++) {
-                    for (let col = 0; startX + col * spacingX < x + width - 10; col++) {
-                        ctx.beginPath();
-                        ctx.arc(startX + col * spacingX, startY + row * spacingY, dotRadius, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-                }
-            } else if (patternType === 'crosshatch') {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.lineWidth = 1;
-                const spacing = 8;
-                // Draw lines within the original card bounds (clipping handles the edges)
-                for (let i = -height; i < width + height; i += spacing) { 
-                    ctx.beginPath();
-                    ctx.moveTo(x + i, y);
-                    ctx.lineTo(x + i + height, y + height); 
-                    ctx.stroke();
-                }
-                 for (let i = -height; i < width + height; i += spacing) { 
-                    ctx.beginPath();
-                    ctx.moveTo(x + i, y);
-                    ctx.lineTo(x + i - height, y + height); 
-                    ctx.stroke();
-                }
-            } else if (patternType === 'circles') {
-                const circleRadius = 5;
-                const spacingX = 18; const spacingY = 18;
-                const startX = x + 18; const startY = y + 18;
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.lineWidth = 1.5;
-                 for (let row = 0; startY + row * spacingY < y + height - 10; row++) {
-                    for (let col = 0; startX + col * spacingX < x + width - 10; col++) {
-                        ctx.beginPath();
-                        ctx.arc(startX + col * spacingX, startY + row * spacingY, circleRadius, 0, Math.PI * 2);
-                        ctx.stroke(); // Draw outlines instead of filling
+                return `
+                    <div class="card ${this.color}" id="${this.id}" onclick="game.toggleCardSelection('${this.id}')">
+                        <div class="card-corner-top">
+                            <div>${this.rank}</div>
+                            <div>${this.suit}</div>
+                        </div>
+                        <div class="card-center">${this.suit}</div>
+                        <div class="card-corner-bottom">
+                            <div>${this.rank}</div>
+                            <div>${this.suit}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        class Deck {
+            constructor() {
+                this.cards = [];
+                for (let s of SUITS) {
+                    for (let r of RANKS) {
+                        this.cards.push(new Card(s, r));
                     }
                 }
             }
-            // Restore happens in drawCard after clipping is removed
-        }
 
-
-        // --- Drawing Functions ---
-        
-        /** Draws a single card. UPDATED: Uses inset path for clipping back pattern */
-        function drawCard(card, x, y, faceUp = false) {
-            let drawY = y;
-            let drawX = x;
-            const cornerRadius = 5;
-
-            if(faceUp && card) {
-                card.x = drawX;
-                card.y = drawY; 
-            }
-
-            ctx.save(); // Save context before shadow, path etc.
-            ctx.shadowColor = 'rgba(0,0,0,0.3)';
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-
-            // --- Define the MAIN Rounded Rectangle Path ---
-            ctx.beginPath();
-            ctx.moveTo(drawX + cornerRadius, drawY);
-            ctx.lineTo(drawX + CARD_WIDTH - cornerRadius, drawY);
-            ctx.quadraticCurveTo(drawX + CARD_WIDTH, drawY, drawX + CARD_WIDTH, drawY + cornerRadius);
-            ctx.lineTo(drawX + CARD_WIDTH, drawY + CARD_HEIGHT - cornerRadius);
-            ctx.quadraticCurveTo(drawX + CARD_WIDTH, drawY + CARD_HEIGHT, drawX + CARD_WIDTH - cornerRadius, drawY + CARD_HEIGHT);
-            ctx.lineTo(drawX + cornerRadius, drawY + CARD_HEIGHT);
-            ctx.quadraticCurveTo(drawX, drawY + CARD_HEIGHT, drawX, drawY + CARD_HEIGHT - cornerRadius);
-            ctx.lineTo(drawX, drawY + cornerRadius);
-            ctx.quadraticCurveTo(drawX, drawY, drawX + cornerRadius, drawY);
-            ctx.closePath();
-            // --- Path defined ---
-
-            // Card body color 
-            ctx.fillStyle = faceUp ? 'white' : cardBackColor;
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 1;
-
-             // --- Card back pattern drawing with INSET clipping ---
-             if (!faceUp) {
-                 // Fill the main path with the base back color FIRST
-                 ctx.fill();
-
-                 ctx.save(); // Save before creating inset path and clipping
-
-                 // --- Define slightly INSET path for clipping ---
-                 const inset = 0.5; // Inset by half a pixel to contain stroke
-                 ctx.beginPath();
-                 ctx.moveTo(drawX + cornerRadius, drawY + inset); // Move start slightly down
-                 ctx.lineTo(drawX + CARD_WIDTH - cornerRadius, drawY + inset); // End slightly down
-                 ctx.quadraticCurveTo(drawX + CARD_WIDTH - inset, drawY + inset, drawX + CARD_WIDTH - inset, drawY + cornerRadius); // Control points inset
-                 ctx.lineTo(drawX + CARD_WIDTH - inset, drawY + CARD_HEIGHT - cornerRadius); // Line slightly left
-                 ctx.quadraticCurveTo(drawX + CARD_WIDTH - inset, drawY + CARD_HEIGHT - inset, drawX + CARD_WIDTH - cornerRadius, drawY + CARD_HEIGHT - inset); // Control points inset
-                 ctx.lineTo(drawX + cornerRadius, drawY + CARD_HEIGHT - inset); // Line slightly up
-                 ctx.quadraticCurveTo(drawX + inset, drawY + CARD_HEIGHT - inset, drawX + inset, drawY + CARD_HEIGHT - cornerRadius); // Control points inset
-                 ctx.lineTo(drawX + inset, drawY + cornerRadius); // Line slightly right
-                 ctx.quadraticCurveTo(drawX + inset, drawY + inset, drawX + cornerRadius, drawY + inset); // Control points inset
-                 ctx.closePath();
-                 // --- Inset path defined ---
-
-                 ctx.clip(); // Apply the INSET path as clipping mask
-
-                 // Draw the pattern normally, it will be clipped by the inset path
-                 drawCardBackPattern(ctx, drawX, drawY, CARD_WIDTH, CARD_HEIGHT, selectedCardBackPattern);
-
-                 ctx.restore(); // Remove clipping mask
-
-             } else {
-                  // If face up, fill normally using the main path
-                  ctx.fill();
-             }
-              // --- End pattern drawing ---
-
-            // Stroke the MAIN outline (do this after fill/pattern)
-            ctx.stroke(); 
-            
-            // Card value (drawn on top)
-            if (faceUp && card) {
-                // Save context specifically for text drawing if needed
-                ctx.save(); 
-                ctx.fillStyle = card.color;
-                ctx.font = 'bold 20px Inter';
-                ctx.textAlign = 'left';
-                // Reset shadow for text if it was applied before path
-                ctx.shadowColor = 'transparent'; 
-                ctx.fillText(card.value, drawX + 8, drawY + 22);
-                ctx.font = '16px Inter';
-                ctx.fillText(card.suit, drawX + 8, drawY + 42);
-                ctx.restore(); // Restore after top-left text
-
-                ctx.save(); // Save context before rotating for bottom-right text
-                ctx.translate(drawX + CARD_WIDTH - 8, drawY + CARD_HEIGHT - 12);
-                ctx.rotate(Math.PI);
-                ctx.fillStyle = card.color; // Set fillStyle again after restore
-                ctx.font = 'bold 20px Inter';
-                ctx.textAlign = 'left';
-                 ctx.shadowColor = 'transparent'; // Ensure no shadow
-                ctx.fillText(card.value, 0, 0);
-                ctx.font = '16px Inter';
-                ctx.fillText(card.suit, 0, -20);
-                ctx.restore(); // Restore context after rotating
-            }
-            ctx.restore(); // Restore context after initial save (shadow etc.)
-        }
-
-
-        /** Draws the player's hand. Added card count */
-        function drawPlayerHand() {
-            const playerHand = allHands[0];
-            if (!playerHand) return; 
-            const handAreaWidth = baseWidth - 220;
-            const handPadding = 20;
-            
-            const totalWidth = CARD_WIDTH + (playerHand.length - 1) * CARD_OVERLAP;
-            let startX;
-            let newOverlap = CARD_OVERLAP;
-            
-            let currentHoverCardIndex = -1;
-            if (currentHoverCard) {
-                currentHoverCardIndex = playerHand.indexOf(currentHoverCard);
-            }
-
-            if (totalWidth > (handAreaWidth - handPadding * 2)) {
-                startX = handPadding;
-                newOverlap = (handAreaWidth - handPadding * 2 - CARD_WIDTH) / (playerHand.length - 1 || 1);
-            } else {
-                 startX = (handAreaWidth - totalWidth) / 2 + handPadding; // Added padding
-            }
-            
-            // --- Draw Player Card Count ---
-            const cardCount = playerHand.length;
-            const countTextY = baseHeight - CARD_HEIGHT - 20 - 25; 
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.font = 'bold 16px Inter';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'bottom';
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 3;
-            ctx.shadowOffsetX = 1;
-            ctx.shadowOffsetY = 1;
-            ctx.fillText(`Your Cards: ${cardCount}`, handPadding, countTextY);
-            ctx.restore(); 
-            // --- End Card Count ---
-            
-            playerHand.forEach((card, i) => {
-                if (!card) return; 
-                const originalX = startX + i * newOverlap;
-                const baseY = baseHeight - CARD_HEIGHT - 20;
-                
-                card.targetX = originalX;
-                card.targetFanOffset = 0;
-                card.targetY = baseY;
-                
-                if (currentHoverCardIndex !== -1 && i > currentHoverCardIndex) {
-                    card.targetFanOffset = HOVER_FAN_OFFSET; 
-                }
-                
-                if (card.selected) card.targetY = baseY - 20;
-                else if (card.isHovered) card.targetY = baseY - HOVER_ELEVATION;
-                
-                if (card.currentX === undefined) card.currentX = card.targetX;
-                if (card.currentY === undefined) card.currentY = card.targetY;
-                if (card.currentFanOffset === undefined) card.currentFanOffset = card.targetFanOffset;
-                
-                const animSpeed = 0.2; 
-                card.currentX = lerp(card.currentX, card.targetX, animSpeed);
-                card.currentY = lerp(card.currentY, card.targetY, animSpeed);
-                card.currentFanOffset = lerp(card.currentFanOffset, card.targetFanOffset, animSpeed);
-
-                drawCard(card, card.currentX + card.currentFanOffset, card.currentY, true);
-                
-                clickableAreas[`card_PLAYER_${i}`] = { 
-                    rect: { 
-                        x: originalX, 
-                        y: baseY, 
-                        w: newOverlap, 
-                        h: CARD_HEIGHT 
-                    }, 
-                    card: card 
-                };
-            });
-            
-            if (playerHand.length > 0) {
-                const lastIndex = playerHand.length - 1;
-                if (clickableAreas[`card_PLAYER_${lastIndex}`]) {
-                    clickableAreas[`card_PLAYER_${lastIndex}`].rect.w = CARD_WIDTH;
+            shuffle() {
+                // Fisher-Yates shuffle
+                for (let i = this.cards.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
                 }
             }
-        }
 
-        function drawAIHands() {
-            const numAIs = allHands.length - 1;
-            if (numAIs === 0) return;
-
-            const topAreaWidth = baseWidth - 40; 
-            const slotWidth = topAreaWidth / numAIs;
-                 
-            for (let i = 1; i < allHands.length; i++) {
-                const aiHand = allHands[i];
-                 if (!aiHand) continue; 
-                const slotX = 20 + (i - 1) * slotWidth;
-                
-                const x = slotX + (slotWidth / 2) - (CARD_WIDTH / 2);
-                const y = 20;
-                
-                let dummyCard = new Card('♠', 'A'); 
-                drawCard(dummyCard, x, y, false); 
-
-                if (currentPlayerIndex === i) {
-                    ctx.strokeStyle = '#facc15';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(x - 2, y - 2, CARD_WIDTH + 4, CARD_HEIGHT + 4);
-                    ctx.lineWidth = 1; 
+            deal(numPlayers) {
+                const hands = Array(numPlayers).fill().map(() => []);
+                let i = 0;
+                while (this.cards.length > 0) {
+                    hands[i % numPlayers].push(this.cards.pop());
+                    i++;
                 }
-
-                ctx.save();
-                ctx.font = 'bold 36px Inter';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.shadowColor = 'black';
-                ctx.shadowBlur = 5;
-                ctx.shadowOffsetX = 2;
-                ctx.shadowOffsetY = 2;
-                ctx.fillStyle = 'white';
-                ctx.fillText(aiHand.length, x + CARD_WIDTH / 2, y + CARD_HEIGHT / 2);
-                ctx.restore(); 
-
-                ctx.fillStyle = 'white';
-                ctx.font = '16px Inter';
-                ctx.textAlign = 'center';
-                ctx.fillText(`AI ${i}`, x + CARD_WIDTH / 2, y + CARD_HEIGHT + 20); 
+                hands.forEach(h => h.sort((a,b) => a.value - b.value));
+                return hands;
             }
         }
 
-        function drawDiscardPile() {
-             if (discardPile.length > 0) {
-                 const topCard = discardPile[0] || new Card('♠', 'A');
-                 drawCard(topCard, baseWidth / 2 - CARD_WIDTH / 2, baseHeight / 2 - CARD_HEIGHT / 2, false);
-
-                 if (discardPile.length > 1) {
-                     const secondCard = discardPile[1] || new Card('♠', 'A');
-                     drawCard(secondCard, baseWidth / 2 - CARD_WIDTH / 2 + 5, baseHeight / 2 - CARD_HEIGHT / 2 - 5, false);
-                 }
-             }
-            ctx.fillStyle = 'white';
-            ctx.font = '16px Inter';
-            ctx.textAlign = 'center';
-            ctx.fillText(`Pile: ${discardPile.length} Cards`, baseWidth / 2, baseHeight / 2 + CARD_HEIGHT / 2 + 25);
-        }
-
-        function drawUI() {
-            const buttonY_Quit = baseHeight - 20 - 40; 
-            const buttonY_BS = buttonY_Quit - 10 - 40; 
-            const buttonY_Play = buttonY_BS - 10 - 50;  
-
-            clickableAreas['play'] = { rect: { x: baseWidth - 190, y: buttonY_Play, w: 170, h: 50 } }; 
-            clickableAreas['bs'] = { rect: { x: baseWidth - 190, y: buttonY_BS, w: 170, h: 40 } };
-            clickableAreas['quit'] = { rect: { x: baseWidth - 190, y: buttonY_Quit, w: 170, h: 40 } };
-
-            const isPlayerTurn = (currentPlayerIndex === 0);
-
-            // Play Button
-            ctx.save();
-            if (isPlayerTurn) {
-                ctx.fillStyle = (hoveredButtonKey === 'play') ? '#16a34a' : '#22c55e'; 
-                ctx.strokeStyle = '#16a34a';
-                if(hoveredButtonKey === 'play') { ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 10; }
-            } else { ctx.fillStyle = '#555'; ctx.strokeStyle = '#444'; }
-            ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(clickableAreas['play'].rect.x, clickableAreas['play'].rect.y, clickableAreas['play'].rect.w, clickableAreas['play'].rect.h, 5); ctx.fill(); ctx.stroke(); ctx.restore(); 
-            ctx.fillStyle = isPlayerTurn ? 'white' : '#aaa'; ctx.font = 'bold 16px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Play Selected Cards', clickableAreas['play'].rect.x + clickableAreas['play'].rect.w / 2, clickableAreas['play'].rect.y + clickableAreas['play'].rect.h / 2);
-
-            // BS Button
-            const canCallBS = (lastPlay.length > 0 && isPlayerTurn);
-            ctx.save();
-            if (canCallBS) {
-                ctx.fillStyle = (hoveredButtonKey === 'bs') ? '#d97706' : '#f59e0b'; 
-                ctx.strokeStyle = '#d97706';
-                 if(hoveredButtonKey === 'bs') { ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 10; }
-            } else { ctx.fillStyle = '#555'; ctx.strokeStyle = '#444'; }
-            ctx.beginPath(); ctx.roundRect(clickableAreas['bs'].rect.x, clickableAreas['bs'].rect.y, clickableAreas['bs'].rect.w, clickableAreas['bs'].rect.h, 5); ctx.fill(); ctx.stroke(); ctx.restore(); 
-            ctx.fillStyle = canCallBS ? 'white' : '#aaa'; ctx.font = 'bold 16px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Call Bullshit!', clickableAreas['bs'].rect.x + clickableAreas['bs'].rect.w / 2, clickableAreas['bs'].rect.y + clickableAreas['bs'].rect.h / 2);
-
-            // Quit Button
-            ctx.save();
-            ctx.fillStyle = (hoveredButtonKey === 'quit') ? '#7f1d1d' : '#991b1b'; 
-            ctx.strokeStyle = '#7f1d1d';
-            if(hoveredButtonKey === 'quit') { ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 10; }
-            ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(clickableAreas['quit'].rect.x, clickableAreas['quit'].rect.y, clickableAreas['quit'].rect.w, clickableAreas['quit'].rect.h, 5); ctx.fill(); ctx.stroke(); ctx.restore();
-            ctx.fillStyle = 'white'; ctx.font = 'bold 16px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Quit Game', clickableAreas['quit'].rect.x + clickableAreas['quit'].rect.w / 2, clickableAreas['quit'].rect.y + clickableAreas['quit'].rect.h / 2);
-
-            // Rank To Play Display
-            const rankToPlay = VALUES[currentRankIndex];
-            ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.fillStyle = 'white'; ctx.font = 'bold 24px Inter'; ctx.fillText("Rank to Play:", 150, baseHeight / 2 - 50); ctx.restore(); 
-            const cardX = 150 - CARD_WIDTH / 2; const cardY = baseHeight / 2 - 20; let dummyRankCard = new Card('♠', 'A'); drawCard(dummyRankCard, cardX, cardY, false);
-            ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 5; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.fillStyle = '#facc15'; ctx.font = 'bold 36px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(rankToPlay, 150, cardY + CARD_HEIGHT / 2); ctx.restore(); 
-            
-            // Message Box
-            const messageBoxY = baseHeight - 250; const mainMessageY = messageBoxY + 20; const lastMessageY = mainMessageY + 20; 
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; ctx.beginPath(); ctx.roundRect(baseWidth / 2 - 250, messageBoxY, 500, 65, 10); ctx.fill();
-            ctx.fillStyle = '#f0f0f0'; ctx.font = '16px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(message, baseWidth / 2, mainMessageY);
-            ctx.fillStyle = '#aaa'; ctx.font = 'italic 14px Inter'; ctx.fillText(lastMessage, baseWidth / 2, lastMessageY);
-             
-            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        }
-
-        function drawQuitModal() {
-            ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, baseWidth, baseHeight);
-            const modalWidth = 400; const modalHeight = 180; const modalX = (baseWidth - modalWidth) / 2; const modalY = (baseHeight - modalHeight) / 2;
-            ctx.fillStyle = '#333'; ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(modalX, modalY, modalWidth, modalHeight, 10); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = 'white'; ctx.font = 'bold 24px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText("Are you sure?", baseWidth / 2, modalY + 40);
-            const yesBtn = { x: modalX + 40, y: modalY + 100, w: 140, h: 40 }; clickableAreas['quit_confirm'] = { rect: yesBtn }; ctx.fillStyle = (hoveredButtonKey === 'quit_confirm') ? '#dc2626' : '#ef4444'; ctx.beginPath(); ctx.roundRect(yesBtn.x, yesBtn.y, yesBtn.w, yesBtn.h, 5); ctx.fill(); ctx.fillStyle = 'white'; ctx.font = 'bold 16px Inter'; ctx.fillText("Yes, Quit", yesBtn.x + yesBtn.w / 2, yesBtn.y + yesBtn.h / 2);
-            const noBtn = { x: modalX + modalWidth - 180, y: modalY + 100, w: 140, h: 40 }; clickableAreas['quit_cancel'] = { rect: noBtn }; ctx.fillStyle = (hoveredButtonKey === 'quit_cancel') ? '#555' : '#777'; ctx.beginPath(); ctx.roundRect(noBtn.x, noBtn.y, noBtn.w, noBtn.h, 5); ctx.fill(); ctx.fillStyle = 'white'; ctx.font = 'bold 16px Inter'; ctx.fillText("No, Cancel", noBtn.x + noBtn.w / 2, noBtn.y + noBtn.h / 2);
-            // Reset alignment needed after centering text
-            ctx.textAlign = 'left'; 
-            ctx.textBaseline = 'top'; 
-        }
-        
-        /** Draws the Start Menu */
-        function drawStartMenu() {
-            ctx.fillStyle = tablePattern; // Use tablePattern
-            ctx.fillRect(0, 0, baseWidth, baseHeight);
-            
-            const titleY = baseHeight / 2 - 100; 
-            ctx.fillStyle = 'white'; ctx.font = 'bold 64px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 5; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-            ctx.strokeStyle = '#444'; ctx.lineWidth = 3; ctx.strokeText("Bullshit", baseWidth / 2, titleY);
-            ctx.fillText("Bullshit", baseWidth / 2, titleY);
-            ctx.shadowColor = 'transparent'; 
-
-            // Start Button
-            const startBtn = { x: baseWidth/2 - 100, y: baseHeight/2, w: 200, h: 50 }; clickableAreas['start_game'] = { rect: startBtn };
-            ctx.save(); if (hoveredButtonKey === 'start_game') { ctx.fillStyle = '#16a34a'; ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 10; } else { ctx.fillStyle = '#22c55e'; }
-            ctx.beginPath(); ctx.roundRect(startBtn.x, startBtn.y, startBtn.w, startBtn.h, 10); ctx.fill(); ctx.restore(); 
-            ctx.fillStyle = 'white'; ctx.font = 'bold 24px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Start Game', startBtn.x + startBtn.w / 2, startBtn.y + startBtn.h / 2);
-            
-            // Settings Button
-            const settingsBtn = { x: baseWidth/2 - 100, y: baseHeight/2 + 70, w: 200, h: 50 }; clickableAreas['settings'] = { rect: settingsBtn };
-            ctx.save(); if (hoveredButtonKey === 'settings') { ctx.fillStyle = '#d97706'; ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 10; } else { ctx.fillStyle = '#f59e0b'; }
-            ctx.beginPath(); ctx.roundRect(settingsBtn.x, settingsBtn.y, settingsBtn.w, settingsBtn.h, 10); ctx.fill(); ctx.restore(); 
-            ctx.fillStyle = 'white'; ctx.font = 'bold 24px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Settings', settingsBtn.x + settingsBtn.w / 2, settingsBtn.y + settingsBtn.h / 2);
-
-            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        }
-        
-        /** Draws the Settings Menu - UPDATED with Texture/Pattern options */
-        function drawSettingsMenu() {
-            ctx.fillStyle = tablePattern; // Use tablePattern
-            ctx.fillRect(0, 0, baseWidth, baseHeight);
-            
-            ctx.fillStyle = 'white'; ctx.font = 'bold 48px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText("Settings", baseWidth / 2, 40); // Adjusted Y higher
-
-            // Back Button
-            const backBtn = { x: 20, y: 20, w: 100, h: 40 }; clickableAreas['back_to_menu'] = { rect: backBtn }; ctx.fillStyle = (hoveredButtonKey === 'back_to_menu') ? '#dc2626' : '#ef4444'; ctx.beginPath(); ctx.roundRect(backBtn.x, backBtn.y, backBtn.w, backBtn.h, 10); ctx.fill(); ctx.fillStyle = 'white'; ctx.font = 'bold 18px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Back', backBtn.x + backBtn.w / 2, backBtn.y + backBtn.h / 2);
-
-            let currentY = 80; // Starting Y for options
-
-            // --- AI Opponents ---
-            ctx.fillStyle = 'white'; ctx.font = '20px Inter'; ctx.textAlign = 'center'; ctx.fillText("AI Opponents:", baseWidth / 2, currentY); currentY += 30;
-            const aiBtnWidth = 80, aiBtnHeight = 40, aiBtnSpacing = 15; const totalAiBtnWidth = 4 * aiBtnWidth + 3 * aiBtnSpacing; const startAiBtnX = (baseWidth - totalAiBtnWidth) / 2;
-            for (let i = 1; i <= 4; i++) {
-                const btn = { x: startAiBtnX + (i - 1) * (aiBtnWidth + aiBtnSpacing), y: currentY, w: aiBtnWidth, h: aiBtnHeight }; clickableAreas[`ai_${i}`] = { rect: btn, num: i };
-                if (i === selectedAINum) { ctx.fillStyle = (hoveredButtonKey === `ai_${i}`) ? '#fde047' : '#facc15'; } else { ctx.fillStyle = (hoveredButtonKey === `ai_${i}`) ? '#555' : '#444'; }
-                ctx.strokeStyle = (i === selectedAINum) ? '#fde047' : '#666'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = 'white'; ctx.font = 'bold 20px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i, btn.x + btn.w / 2, btn.y + btn.h / 2);
+        class Game {
+            constructor() {
+                this.players = []; // 0 is user
+                this.pile = [];
+                this.turnIndex = 0;
+                this.currentRankIndex = 0; 
+                this.selectedCardIds = new Set();
+                this.lastMove = null; 
+                this.gameState = 'menu';
+                this.activeBotCount = 3;
             }
-            currentY += aiBtnHeight + 20; // Adjusted spacing
 
-            // --- Number of Decks ---
-            ctx.fillStyle = 'white'; ctx.font = '20px Inter'; ctx.textAlign = 'center'; ctx.fillText("Number of Decks:", baseWidth / 2, currentY); currentY += 30;
-            const deckBtnWidth = 100, deckBtnHeight = 40, deckBtnSpacing = 20; const totalDeckBtnWidth = 2 * deckBtnWidth + deckBtnSpacing; const startDeckBtnX = (baseWidth - totalDeckBtnWidth) / 2;
-            for (let i = 1; i <= 2; i++) {
-                const btn = { x: startDeckBtnX + (i - 1) * (deckBtnWidth + deckBtnSpacing), y: currentY, w: deckBtnWidth, h: deckBtnHeight }; clickableAreas[`deck_${i}`] = { rect: btn, num: i };
-                if (i === numDecks) { ctx.fillStyle = (hoveredButtonKey === `deck_${i}`) ? '#fde047' : '#facc15'; } else { ctx.fillStyle = (hoveredButtonKey === `deck_${i}`) ? '#555' : '#444'; }
-                ctx.strokeStyle = (i === numDecks) ? '#fde047' : '#666'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = 'white'; ctx.font = 'bold 20px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i, btn.x + btn.w / 2, btn.y + btn.h / 2);
+            exitToMenu() {
+                document.getElementById('main-menu').style.display = 'flex';
+                document.getElementById('game-container').classList.add('hidden');
+                document.getElementById('navbar').classList.add('hidden');
+                document.getElementById('gameOverModal').classList.add('hidden');
+                this.gameState = 'menu';
             }
-            currentY += deckBtnHeight + 20; // Adjusted spacing
 
-            // --- Table Color ---
-            ctx.fillStyle = 'white'; ctx.font = '20px Inter'; ctx.textAlign = 'center'; ctx.fillText("Table Color:", baseWidth / 2, currentY); currentY += 30;
-            const colorSwatchSize = 50, colorSwatchSpacing = 20; const colors = Object.keys(tableColors); const totalColorSwatchWidth = colors.length * colorSwatchSize + (colors.length - 1) * colorSwatchSpacing; const startColorSwatchX = (baseWidth - totalColorSwatchWidth) / 2;
-            colors.forEach((name, i) => {
-                const color = tableColors[name]; const swatch = { x: startColorSwatchX + i * (colorSwatchSize + colorSwatchSpacing), y: currentY, w: colorSwatchSize, h: colorSwatchSize }; clickableAreas[`tablecolor_${name}`] = { rect: swatch, color: color };
-                ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(swatch.x, swatch.y, swatch.w, swatch.h, 10); ctx.fill();
-                if (color === tableColor || hoveredButtonKey === `tablecolor_${name}`) { ctx.strokeStyle = (hoveredButtonKey === `tablecolor_${name}`) ? 'white' : '#facc15'; ctx.lineWidth = 4; ctx.stroke(); }
-            });
-            currentY += colorSwatchSize + 20; // Adjusted spacing
+            startGame() {
+                document.getElementById('main-menu').style.display = 'none';
+                document.getElementById('game-container').classList.remove('hidden');
+                document.getElementById('navbar').classList.remove('hidden');
+                this.restartGame();
+            }
 
-            // --- Table Texture --- UPDATED Layout
-            ctx.fillStyle = 'white'; ctx.font = '20px Inter'; ctx.textAlign = 'center'; ctx.fillText("Table Texture:", baseWidth / 2, currentY); currentY += 30;
-            const textureBtnWidth = 80, textureBtnHeight = 40, textureBtnSpacing = 15; const textures = Object.keys(tableTextures); const totalTextureBtnWidth = textures.length * textureBtnWidth + (textures.length - 1) * textureBtnSpacing; const startTextureBtnX = (baseWidth - totalTextureBtnWidth) / 2;
-            textures.forEach((name, i) => {
-                const textureId = tableTextures[name]; const btn = { x: startTextureBtnX + i * (textureBtnWidth + textureBtnSpacing), y: currentY, w: textureBtnWidth, h: textureBtnHeight }; clickableAreas[`tabletexture_${name}`] = { rect: btn, texture: textureId };
-                if (textureId === selectedTableTexture) { ctx.fillStyle = (hoveredButtonKey === `tabletexture_${name}`) ? '#fde047' : '#facc15'; } else { ctx.fillStyle = (hoveredButtonKey === `tabletexture_${name}`) ? '#555' : '#444'; }
-                ctx.strokeStyle = (textureId === selectedTableTexture) ? '#fde047' : '#666'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = 'white'; ctx.font = 'bold 16px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(name, btn.x + btn.w / 2, btn.y + btn.h / 2);
-            });
-             currentY += textureBtnHeight + 20; // Adjusted spacing
+            restartGame() {
+                document.getElementById('gameOverModal').classList.add('hidden');
+                document.getElementById('pile-container').innerHTML = '';
+                document.getElementById('pile-count-badge').classList.add('hidden');
+                document.getElementById('pile-count-badge').textContent = '0';
+                
+                this.gameState = 'init';
+                this.turnIndex = 0;
+                this.currentRankIndex = 0; // Starts at Ace
+                this.pile = [];
+                this.lastMove = null;
+                this.selectedCardIds.clear();
+                this.activeBotCount = botCount; // Update from global settings
 
-            // --- Card Back Color ---
-            ctx.fillStyle = 'white'; ctx.font = '20px Inter'; ctx.textAlign = 'center'; ctx.fillText("Card Back Color:", baseWidth / 2, currentY); currentY += 30;
-            const backSwatchSize = 50, backSwatchSpacing = 20; const backColors = Object.keys(cardBackColors); const totalBackSwatchWidth = backColors.length * backSwatchSize + (backColors.length - 1) * backSwatchSpacing; const startBackSwatchX = (baseWidth - totalBackSwatchWidth) / 2;
-            backColors.forEach((name, i) => {
-                const color = cardBackColors[name]; const swatch = { x: startBackSwatchX + i * (backSwatchSize + backSwatchSpacing), y: currentY, w: backSwatchSize, h: backSwatchSize }; clickableAreas[`cardbackcolor_${name}`] = { rect: swatch, color: color };
-                ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(swatch.x, swatch.y, swatch.w, swatch.h, 10); ctx.fill();
-                if (color === cardBackColor || hoveredButtonKey === `cardbackcolor_${name}`) { ctx.strokeStyle = (hoveredButtonKey === `cardbackcolor_${name}`) ? 'white' : '#facc15'; ctx.lineWidth = 4; ctx.stroke(); }
-            });
-            currentY += backSwatchSize + 20; // Adjusted spacing
+                const deck = new Deck();
+                // Tripple shuffle for good measure
+                deck.shuffle();
+                deck.shuffle();
+                deck.shuffle();
 
-            // --- Card Back Pattern --- UPDATED Layout
-            ctx.fillStyle = 'white'; ctx.font = '20px Inter'; ctx.textAlign = 'center'; ctx.fillText("Card Back Pattern:", baseWidth / 2, currentY); currentY += 30;
-            const patternBtnWidth = 80, patternBtnHeight = 40, patternBtnSpacing = 15; const patterns = Object.keys(cardBackPatterns); const totalPatternBtnWidth = patterns.length * patternBtnWidth + (patterns.length - 1) * patternBtnSpacing; const startPatternBtnX = (baseWidth - totalPatternBtnWidth) / 2;
-            patterns.forEach((name, i) => {
-                const patternId = cardBackPatterns[name]; const btn = { x: startPatternBtnX + i * (patternBtnWidth + patternBtnSpacing), y: currentY, w: patternBtnWidth, h: patternBtnHeight }; clickableAreas[`cardbackpattern_${name}`] = { rect: btn, pattern: patternId };
-                if (patternId === selectedCardBackPattern) { ctx.fillStyle = (hoveredButtonKey === `cardbackpattern_${name}`) ? '#fde047' : '#facc15'; } else { ctx.fillStyle = (hoveredButtonKey === `cardbackpattern_${name}`) ? '#555' : '#444'; }
-                ctx.strokeStyle = (patternId === selectedCardBackPattern) ? '#fde047' : '#666'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10); ctx.fill(); ctx.stroke();
-                ctx.fillStyle = 'white'; ctx.font = 'bold 16px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(name, btn.x + btn.w / 2, btn.y + btn.h / 2);
-            });
-           
-            ctx.lineWidth = 1; 
-            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        }
+                const totalPlayers = this.activeBotCount + 1;
+                const hands = deck.deal(totalPlayers);
 
+                this.players = hands.map((hand, idx) => ({
+                    id: idx,
+                    name: idx === 0 ? 'You' : `Bot ${idx}`,
+                    isBot: idx !== 0,
+                    hand: hand
+                }));
 
-        function drawGameOver() {
-            ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0, 0, baseWidth, baseHeight);
-            ctx.fillStyle = 'white'; ctx.font = 'bold 48px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(message, baseWidth / 2, baseHeight / 2 - 50);
-            const btn = { x: baseWidth/2 - 100, y: baseHeight/2 + 20, w: 200, h: 50 }; clickableAreas['restart'] = { rect: btn };
-            ctx.save(); if (hoveredButtonKey === 'restart') { ctx.fillStyle = '#16a34a'; ctx.shadowColor = 'rgba(255,255,255,0.3)'; ctx.shadowBlur = 10; } else { ctx.fillStyle = '#22c55e'; }
-            ctx.beginPath(); ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 10); ctx.fill(); ctx.restore(); 
-            ctx.fillStyle = 'white'; ctx.font = 'bold 24px Inter'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Main Menu', btn.x + btn.w / 2, btn.y + btn.h / 2);
-            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        }
+                this.updateRankDisplay();
+                this.updateUI();
+                this.startTurn();
+            }
 
-        function gameLoop() {
-            ctx.fillStyle = tablePattern; // Use tablePattern
-            ctx.fillRect(0, 0, baseWidth, baseHeight);
-            clickableAreas = {};
+            get currentRank() {
+                return RANKS[this.currentRankIndex];
+            }
 
-            if (gameState === 'START_MENU') drawStartMenu();
-            else if (gameState === 'SETTINGS_MENU') drawSettingsMenu();
-            else if (gameState === 'PLAYING') { drawAIHands(); drawDiscardPile(); drawPlayerHand(); drawUI(); }
-            else if (gameState === 'GAME_OVER') drawGameOver();
+            nextRank() {
+                this.currentRankIndex = (this.currentRankIndex + 1) % RANKS.length;
+                this.updateRankDisplay();
+            }
 
-            // Resolve Message Drawing
-            if (showResolveMessage && gameState === 'PLAYING') {
-                 if (Date.now() - showResolveMessage.time > showResolveMessage.duration) showResolveMessage = null;
-                 else {
-                    const boxWidth=400, boxHeight=100, boxX = baseWidth/2-boxWidth/2, boxY = baseHeight/2-boxHeight/2;
-                    const textX=baseWidth/2, textY=boxY+20, lineHeight=24, maxWidth=boxWidth-40; // Adjusted textY slightly
-                    ctx.fillStyle='rgba(0,0,0,0.8)'; ctx.beginPath(); ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 10); ctx.fill();
-                    ctx.fillStyle='#facc15'; ctx.font='bold 20px Inter'; ctx.textAlign='center'; ctx.textBaseline='top'; 
-                    wrapText(ctx, showResolveMessage.text, textX, textY, maxWidth, lineHeight);
-                    ctx.textAlign='left'; ctx.textBaseline='top'; 
+            updateRankDisplay() {
+                const r = this.currentRank;
+                const name = r === 'A' ? 'ACE' : r === 'K' ? 'KING' : r === 'Q' ? 'QUEEN' : r === 'J' ? 'JACK' : r;
+                const el = document.getElementById('current-rank-display');
+                el.textContent = name;
+                
+                // Add pop animation
+                const container = el.parentElement;
+                container.classList.remove('pop-anim');
+                void container.offsetWidth; // trigger reflow
+                container.classList.add('pop-anim');
+            }
+
+            // Maps logical player index (1,2,3) to visual slot (1=Left, 2=Top, 3=Right)
+            getVisualSlot(playerIndex) {
+                // Logic based on bot count
+                if (this.activeBotCount === 1) {
+                    // 1 Bot: Center Top (Slot 2)
+                    if (playerIndex === 1) return 2;
+                } else if (this.activeBotCount === 2) {
+                    // 2 Bots: Left (1) and Right (3)
+                    if (playerIndex === 1) return 1;
+                    if (playerIndex === 2) return 3;
+                } else {
+                    // 3 Bots: 1, 2, 3
+                    return playerIndex; 
                 }
+                return 0; // Should not happen
             }
-            if (showQuitConfirmation) drawQuitModal();
-            requestAnimationFrame(gameLoop);
-        }
 
-        // --- Game Logic ---
-        function advanceTurn() {
-             if (!allHands || allHands.length === 0) { console.error("Advance turn: no hands."); gameState = 'START_MENU'; return; }
-            currentPlayerIndex = (currentPlayerIndex + 1) % allHands.length;
-            if (currentPlayerIndex === 0) message = `Your turn. Call BS or play ${VALUES[currentRankIndex]}.`;
-            else {
-                message = `AI ${currentPlayerIndex} is thinking...`;
-                 if (typeof aiTurn === 'function') setTimeout(aiTurn, 1500 + Math.random() * 1500); 
-                 else console.error("aiTurn not function.");
-            }
-        }
+            updateUI() {
+                // Hide all bot slots first
+                [1,2,3].forEach(slot => {
+                    document.getElementById(`visual-slot-${slot}`).classList.add('opacity-0');
+                    document.getElementById(`visual-slot-${slot}`).classList.remove('opacity-80', 'opacity-100');
+                });
 
-        function handlePlayerPlay() {
-            if (currentPlayerIndex !== 0 || !allHands[0]) return; 
-            const playerHand = allHands[0];
-            const selectedCards = playerHand.filter(c => c && c.selected); 
-            if (selectedCards.length === 0) { message = "You must select at least one card to play."; return; }
-            const claimedRank = VALUES[currentRankIndex]; lastPlay = [];
-            allHands[0] = playerHand.filter(c => !(c && c.selected)); 
-            for (const card of selectedCards) {
-                 if (!card) continue; 
-                card.selected = false; card.isHovered = false; discardPile.push(card);
-                lastPlay.push({ card: card, playerLied: (card.value !== claimedRank), claimedRank: claimedRank, playerIndex: 0 });
-            }
-            currentHoverCard = null; lastMessage = `You played ${selectedCards.length} x ${claimedRank}.`;
-            if (checkWin(0)) return; 
-            currentRankIndex = (currentRankIndex + 1) % VALUES.length; advanceTurn();
-        }
+                // Render active opponents
+                for (let i = 1; i <= this.activeBotCount; i++) {
+                    const visualSlot = this.getVisualSlot(i);
+                    const slotDiv = document.getElementById(`visual-slot-${visualSlot}`);
+                    
+                    slotDiv.classList.remove('opacity-0');
+                    
+                    // Count
+                    document.getElementById(`slot-${visualSlot}-count`).textContent = this.players[i].hand.length;
+                    document.getElementById(`slot-${visualSlot}-name`).textContent = this.players[i].name;
 
-        function handlePlayerCallBS() {
-            if (currentPlayerIndex !== 0 || lastPlay.length === 0 || !allHands[0]) return; 
-            const wasALie = lastPlay.some(p => p && p.playerLied); 
-            const lastPlayerIndex = lastPlay[0]?.playerIndex; 
-            if (lastPlayerIndex === undefined || !allHands[lastPlayerIndex]) return; 
-            const lastPlayerName = lastPlayerIndex === 0 ? "You" : `AI ${lastPlayerIndex}`;
-            if (wasALie) {
-                setResolveMessage(`You called BS! It was a LIE! ${lastPlayerName} pick${lastPlayerIndex === 0 ? '' : 's'} up ${discardPile.length} cards.`);
-                allHands[lastPlayerIndex].push(...discardPile); sortHand(allHands[lastPlayerIndex]); allHands[lastPlayerIndex].forEach(resetCardAnimation); 
-            } else {
-                setResolveMessage(`You called BS! It was the TRUTH. You pick up ${discardPile.length} cards.`);
-                allHands[0].push(...discardPile); sortHand(allHands[0]); allHands[0].forEach(resetCardAnimation); 
-            }
-            discardPile = []; lastPlay = []; currentHoverCard = null; 
-            message = `Your turn. Play ${VALUES[currentRankIndex]}.`;
-        }
-        
-        function resetCardAnimation(card) {
-             if (!card) return; 
-            card.currentX = undefined; card.currentY = undefined; card.currentFanOffset = undefined;
-        }
-
-        function aiTurn() {
-            if (currentPlayerIndex === 0 || !allHands[currentPlayerIndex]) return; 
-            const currentAIHand = allHands[currentPlayerIndex]; const currentRank = VALUES[currentRankIndex];
-            if (lastPlay.length > 0) {
-                let callBS = false; const lastPlayerIndex = lastPlay[0]?.playerIndex; 
-                if (lastPlayerIndex === undefined || !allHands[lastPlayerIndex]) { console.error("Invalid lastPlay state"); advanceTurn(); return; }
-                const lastPlayerName = lastPlayerIndex === 0 ? "You" : `AI ${lastPlayerIndex}`; const cardsPlayerClaimed = lastPlay.length; const lastRankPlayed = lastPlay[0].claimedRank;
-                const aiHeldOfRank = currentAIHand.filter(c => c && c.value === lastRankPlayed).length; if (aiHeldOfRank + cardsPlayerClaimed > (4 * numDecks)) callBS = true;
-                if (cardsPlayerClaimed >= (3 * numDecks) && Math.random() > 0.4) callBS = true;
-                if (Math.random() > 0.85) callBS = true; 
-                if (allHands[lastPlayerIndex] && allHands[lastPlayerIndex].length === 0) callBS = true;
-                if (lastPlayerIndex === currentPlayerIndex) callBS = false;
-                if (callBS) {
-                    const wasALie = lastPlay.some(p => p && p.playerLied); 
-                    if (!allHands[lastPlayerIndex]) { console.error("Invalid lastPlayerIndex"); advanceTurn(); return; }
-                    if (wasALie) {
-                        setResolveMessage(`AI ${currentPlayerIndex} called BS on ${lastPlayerName}! It was a LIE! ${lastPlayerName} picks up.`);
-                        allHands[lastPlayerIndex].push(...discardPile); sortHand(allHands[lastPlayerIndex]); allHands[lastPlayerIndex].forEach(resetCardAnimation); 
+                    // Active Player Highlight
+                    if (this.turnIndex === i) {
+                        slotDiv.classList.add('active-player', 'opacity-100');
+                        slotDiv.classList.remove('opacity-80');
                     } else {
-                        setResolveMessage(`AI ${currentPlayerIndex} called BS on ${lastPlayerName}! It was the TRUTH. AI ${currentPlayerIndex} picks up.`);
-                        allHands[currentPlayerIndex].push(...discardPile); sortHand(allHands[currentPlayerIndex]); allHands[currentPlayerIndex].forEach(resetCardAnimation); 
+                        slotDiv.classList.remove('active-player', 'opacity-100');
+                        slotDiv.classList.add('opacity-80');
                     }
-                    discardPile = []; lastPlay = []; 
+                }
+
+                // Update User
+                const userDiv = document.getElementById('player-0');
+                if (this.turnIndex === 0) {
+                    userDiv.classList.add('active-player');
+                    document.getElementById('p0-status').textContent = "YOUR TURN";
+                } else {
+                    userDiv.classList.remove('active-player');
+                    document.getElementById('p0-status').textContent = "";
+                }
+
+                // Render User Hand
+                const handContainer = document.getElementById('user-hand');
+                handContainer.innerHTML = '';
+                this.players[0].hand.forEach(card => {
+                    const cardHTML = card.getHTML(true);
+                    handContainer.insertAdjacentHTML('beforeend', cardHTML);
+                    const el = document.getElementById(card.id);
+                    if (this.selectedCardIds.has(card.id)) {
+                        el.classList.add('selected');
+                    }
+                });
+
+                // Pile Badge
+                const pileBadge = document.getElementById('pile-count-badge');
+                if (this.pile.length > 0) {
+                    pileBadge.textContent = this.pile.length;
+                    pileBadge.classList.remove('hidden');
+                } else {
+                    pileBadge.classList.add('hidden');
                 }
             }
-            if (!allHands[currentPlayerIndex]) { console.error("AI hand missing"); advanceTurn(); return; }
-            const currentAIHandAfterBS = allHands[currentPlayerIndex]; 
-            const cardsToPlay = currentAIHandAfterBS.filter(c => c && c.value === currentRank); 
-            let cardsToPlayFromHand = []; let aiLied = false;
-            if (cardsToPlay.length > 0) {
-                const numToPlay = Math.random() > 0.5 ? 1 : Math.min(cardsToPlay.length, 2 * numDecks); cardsToPlayFromHand = cardsToPlay.slice(0, numToPlay);
-            } else {
-                 if (currentAIHandAfterBS.length === 0) { console.log(`AI ${currentPlayerIndex} no cards to lie.`); advanceTurn(); return; }
-                aiLied = true; const validHandCards = currentAIHandAfterBS.filter(c => c);
-                 if (validHandCards.length === 0) { console.log(`AI ${currentPlayerIndex} no valid cards to lie.`); advanceTurn(); return; }
-                const cardToLieWith = validHandCards.length > 5 ? validHandCards.reduce((p, c) => (p.rank < c.rank ? p : c)) : validHandCards.reduce((p, c) => (p.rank > c.rank ? p : c));
-                cardsToPlayFromHand.push(cardToLieWith);
-            }
-            allHands[currentPlayerIndex] = currentAIHandAfterBS.filter(card => !(card && cardsToPlayFromHand.includes(card))); 
-            lastPlay = [];
-            for (const card of cardsToPlayFromHand) {
-                 if (!card) continue; 
-                discardPile.push(card); lastPlay.push({ card: card, playerLied: aiLied, claimedRank: currentRank, playerIndex: currentPlayerIndex });
-            }
-            lastMessage = `AI ${currentPlayerIndex} played ${cardsToPlayFromHand.length} x ${currentRank}.`;
-            if (checkWin(currentPlayerIndex)) return;
-            currentRankIndex = (currentRankIndex + 1) % VALUES.length; advanceTurn();
-        }
-        
-        function checkWin(playerIndex) {
-            if (allHands[playerIndex] && allHands[playerIndex].length === 0) { 
-                gameState = 'GAME_OVER'; message = (playerIndex === 0 ? "YOU WIN!" : `AI ${playerIndex} WINS!`); return true;
-            } return false;
-        }
-        
-        function startGame() {
-            deck = []; allHands = []; discardPile = []; lastPlay = [];
-            currentRankIndex = 0; currentPlayerIndex = 0; message = "You start. Play your 'A's."; lastMessage = "";
-            gameState = 'PLAYING'; showResolveMessage = null; currentHoverCard = null; showQuitConfirmation = false; 
-            for(let i = 0; i < selectedAINum + 1; i++) allHands.push([]);
-            createAndShuffleDeck(); dealCards();
-        }
 
-        // --- Event Listeners ---
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-            if (showQuitConfirmation) {
-                if (clickableAreas['quit_confirm'] && isMouseInRect(mx, my, clickableAreas['quit_confirm'].rect)) { showQuitConfirmation = false; gameState = 'START_MENU'; }
-                if (clickableAreas['quit_cancel'] && isMouseInRect(mx, my, clickableAreas['quit_cancel'].rect)) { showQuitConfirmation = false; }
-                return; 
+            toggleCardSelection(cardId) {
+                if (this.gameState !== 'player_turn' || this.turnIndex !== 0) return;
+
+                const el = document.getElementById(cardId);
+                if (this.selectedCardIds.has(cardId)) {
+                    this.selectedCardIds.delete(cardId);
+                    el.classList.remove('selected');
+                } else {
+                    if (this.selectedCardIds.size >= 4) {
+                        showToast("Max 4 cards allowed!");
+                        return;
+                    }
+                    this.selectedCardIds.add(cardId);
+                    el.classList.add('selected');
+                }
+                this.renderUserButtons();
             }
-            if (gameState === 'GAME_OVER') { if (clickableAreas['restart'] && isMouseInRect(mx, my, clickableAreas['restart'].rect)) gameState = 'START_MENU'; return; }
-            if (gameState === 'START_MENU') {
-                if (clickableAreas['start_game'] && isMouseInRect(mx, my, clickableAreas['start_game'].rect)) startGame();
-                if (clickableAreas['settings'] && isMouseInRect(mx, my, clickableAreas['settings'].rect)) gameState = 'SETTINGS_MENU';
-                return;
+
+            renderUserButtons() {
+                const area = document.getElementById('action-area');
+                area.innerHTML = '';
+
+                if (this.gameState === 'player_turn' && this.turnIndex === 0) {
+                    const count = this.selectedCardIds.size;
+                    const btnClass = count > 0 
+                        ? "bg-green-600 hover:bg-green-500 transform hover:scale-105" 
+                        : "bg-gray-600 cursor-not-allowed opacity-50";
+                    
+                    const btn = document.createElement('button');
+                    // Bigger play button
+                    btn.className = `${btnClass} text-white font-bold py-4 px-10 rounded-full shadow-2xl transition duration-200 z-50 relative pointer-events-auto text-xl border-2 border-green-400`;
+                    btn.innerHTML = `Play ${count} ${this.currentRank}${count !== 1 ? "'s" : ""}`;
+                    btn.disabled = count === 0;
+                    
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.submitMove();
+                    });
+                    
+                    area.appendChild(btn);
+                } else if (this.gameState === 'challenge_window' && this.lastMove.playerIndex !== 0) {
+                    // Challenge buttons - Bigger
+                    const bsBtn = document.createElement('button');
+                    bsBtn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-4 px-10 rounded-full shadow-2xl transition transform hover:scale-105 z-50 relative pointer-events-auto text-xl border-2 border-red-400 mb-2";
+                    bsBtn.innerHTML = "<i class='fas fa-exclamation-triangle mr-2'></i>Bullshit!";
+                    bsBtn.onclick = () => this.resolveChallenge(true); 
+
+                    const okBtn = document.createElement('button');
+                    okBtn.className = "bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-10 rounded-full shadow-2xl transition transform hover:scale-105 z-50 relative pointer-events-auto text-xl border-2 border-blue-400";
+                    okBtn.innerHTML = "<i class='fas fa-thumbs-up mr-2'></i>Believe";
+                    okBtn.onclick = () => this.resolveChallenge(false);
+
+                    area.appendChild(bsBtn);
+                    area.appendChild(okBtn);
+                }
             }
-            if (gameState === 'SETTINGS_MENU') {
-                if (clickableAreas['back_to_menu'] && isMouseInRect(mx, my, clickableAreas['back_to_menu'].rect)) { gameState = 'START_MENU'; return; }
-                // AI Count
-                for (let i = 1; i <= 4; i++) { if (clickableAreas[`ai_${i}`] && isMouseInRect(mx, my, clickableAreas[`ai_${i}`].rect)) { selectedAINum = i; return; } }
-                // Deck Count
-                for (let i = 1; i <= 2; i++) { if (clickableAreas[`deck_${i}`] && isMouseInRect(mx, my, clickableAreas[`deck_${i}`].rect)) { numDecks = i; return; } }
-                // Table Color - Key updated
-                for (const name in tableColors) { if (clickableAreas[`tablecolor_${name}`] && isMouseInRect(mx, my, clickableAreas[`tablecolor_${name}`].rect)) { tableColor = tableColors[name]; createTablePattern(tableColor, selectedTableTexture); return; } } // Regenerate pattern
-                // Card Back Color - Key updated
-                for (const name in cardBackColors) { if (clickableAreas[`cardbackcolor_${name}`] && isMouseInRect(mx, my, clickableAreas[`cardbackcolor_${name}`].rect)) { cardBackColor = cardBackColors[name]; return; } }
+
+            startTurn() {
+                this.checkWinCondition();
+                if (this.gameState === 'game_over') return;
+
+                this.selectedCardIds.clear();
+                this.updateUI();
+                this.renderUserButtons();
                 
-                // --- UPDATED Click Handlers ---
-                // Table Texture
-                for (const name in tableTextures) { if (clickableAreas[`tabletexture_${name}`] && isMouseInRect(mx, my, clickableAreas[`tabletexture_${name}`].rect)) { selectedTableTexture = tableTextures[name]; createTablePattern(tableColor, selectedTableTexture); return; } } // Regenerate pattern
-                 // Card Back Pattern
-                 for (const name in cardBackPatterns) { if (clickableAreas[`cardbackpattern_${name}`] && isMouseInRect(mx, my, clickableAreas[`cardbackpattern_${name}`].rect)) { selectedCardBackPattern = cardBackPatterns[name]; return; } }
-                 // --- End UPDATED ---
+                this.gameState = 'player_turn';
+                const player = this.players[this.turnIndex];
 
-                return;
-            }
-            if (gameState !== 'PLAYING') return;
-            if (clickableAreas['quit'] && isMouseInRect(mx, my, clickableAreas['quit'].rect)) { showQuitConfirmation = true; return; }
-            if (currentPlayerIndex === 0) {
-                if (clickableAreas['play'] && isMouseInRect(mx, my, clickableAreas['play'].rect)) { handlePlayerPlay(); return; }
-                if (clickableAreas['bs'] && lastPlay.length > 0 && isMouseInRect(mx, my, clickableAreas['bs'].rect)) { handlePlayerCallBS(); return; }
-            }
-            const keys = Object.keys(clickableAreas).reverse();
-            for (const key of keys) {
-                if (key.startsWith('card_PLAYER_')) {
-                    const area = clickableAreas[key];
-                    if (area && area.card && isMouseInRect(mx, my, area.rect)) { area.card.selected = !area.card.selected; return; }
+                if (player.isBot) {
+                    document.getElementById('game-message').textContent = `${player.name} is thinking...`;
+                    const visualSlot = this.getVisualSlot(this.turnIndex);
+                    if(visualSlot) document.getElementById(`slot-${visualSlot}-status`).textContent = "Thinking...";
+                    
+                    setTimeout(() => this.botMove(player), 1000 + Math.random() * 1000);
+                } else {
+                    document.getElementById('game-message').textContent = `Your Turn: Play ${this.currentRank}s`;
+                    showToast(`Play ${this.currentRank}s`, 'bg-blue-600');
                 }
             }
-        });
 
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect(); const mx = e.clientX - rect.left; const my = e.clientY - rect.top;
-            let newHoveredButton = null; let newHoveredCard = null; let cursor = 'default';
-            if (showQuitConfirmation) {
-                if (clickableAreas['quit_confirm'] && isMouseInRect(mx, my, clickableAreas['quit_confirm'].rect)) { newHoveredButton = 'quit_confirm'; cursor = 'pointer'; } 
-                else if (clickableAreas['quit_cancel'] && isMouseInRect(mx, my, clickableAreas['quit_cancel'].rect)) { newHoveredButton = 'quit_cancel'; cursor = 'pointer'; }
-                hoveredButtonKey = newHoveredButton; canvas.style.cursor = cursor; return; 
+            submitMove() {
+                if (this.selectedCardIds.size === 0) return;
+                const cardsToPlay = this.players[0].hand.filter(c => this.selectedCardIds.has(c.id));
+                if (cardsToPlay.length === 0) {
+                    showToast("Error selecting cards");
+                    return;
+                }
+                this.executeMove(0, cardsToPlay);
             }
-            if (gameState === 'PLAYING') {
-                const keys = Object.keys(clickableAreas).reverse();
-                for (const key of keys) {
-                    if (key.startsWith('card_PLAYER_')) {
-                        const area = clickableAreas[key];
-                        if (area && area.card && isMouseInRect(mx, my, area.rect)) { newHoveredCard = area.card; cursor = 'pointer'; break; }
+
+            botMove(player) {
+                const rankToPlay = this.currentRank;
+                const trueCards = player.hand.filter(c => c.rank === rankToPlay);
+                let cardsToPlay = [];
+
+                if (trueCards.length > 0) {
+                    cardsToPlay = trueCards;
+                } else {
+                    const randomIndex = Math.floor(Math.random() * player.hand.length);
+                    cardsToPlay = [player.hand[randomIndex]];
+                }
+
+                if(cardsToPlay.length > 4) cardsToPlay = cardsToPlay.slice(0, 4);
+
+                this.executeMove(this.turnIndex, cardsToPlay);
+            }
+
+            executeMove(playerIdx, cards) {
+                const player = this.players[playerIdx];
+                
+                player.hand = player.hand.filter(c => !cards.includes(c));
+                this.pile.push(...cards);
+
+                this.lastMove = {
+                    playerIndex: playerIdx,
+                    declaredCount: cards.length,
+                    actualCards: cards,
+                    declaredRank: this.currentRank
+                };
+
+                // Animate Cards
+                this.animateMove(playerIdx, cards.length);
+
+                // ** IMMEDIATELY Update Pile Visuals after animation flight time (600ms) **
+                setTimeout(() => {
+                    this.updatePileVisuals(); 
+                }, 600);
+
+                const msg = `${player.name} played ${cards.length} x ${this.currentRank}${cards.length > 1 ? "'s" : ""}`;
+                document.getElementById('game-message').textContent = msg;
+                
+                if(playerIdx !== 0) {
+                     const visualSlot = this.getVisualSlot(playerIdx);
+                     document.getElementById(`slot-${visualSlot}-status`).textContent = "";
+                }
+
+                this.gameState = 'challenge_window';
+                this.updateUI();
+                this.renderUserButtons();
+
+                if (player.isBot) {
+                    this.checkForBotChallenge();
+                } else {
+                    setTimeout(() => this.botChallengeDecision(), 1000);
+                }
+            }
+            
+            updatePileVisuals() {
+                const container = document.getElementById('pile-container');
+                container.innerHTML = '';
+                if (this.pile.length > 0) {
+                    const count = Math.min(this.pile.length, 6); // Max 6 cards shown for mess
+                    for(let i=0; i<count; i++) {
+                        const div = document.createElement('div');
+                        div.className = `card absolute top-1/2 left-1/2 w-20 h-28 transform -translate-x-1/2 -translate-y-1/2 border border-gray-400 rounded bg-white shadow-sm`;
+                        div.innerHTML = `<div class="card-back ${currentCardBack}"></div>`;
+                        // Random rotation for messy effect
+                        const rot = (Math.random() * 30) - 15;
+                        const offX = (Math.random() * 10) - 5;
+                        const offY = (Math.random() * 10) - 5;
+                        div.style.transform = `translate(calc(-50% + ${offX}px), calc(-50% + ${offY}px)) rotate(${rot}deg)`;
+                        container.appendChild(div);
+                    }
+                    const badge = document.getElementById('pile-count-badge');
+                    badge.textContent = this.pile.length;
+                    badge.classList.remove('hidden');
+                }
+            }
+
+            checkForBotChallenge() {
+                let challenger = null;
+                const rankNeeded = this.lastMove.declaredRank;
+                const declaredCount = this.lastMove.declaredCount;
+
+                // Loop through active bots
+                for (let i = 1; i <= this.activeBotCount; i++) {
+                    if (i === this.lastMove.playerIndex) continue;
+                    
+                    const bot = this.players[i];
+                    const knownCards = bot.hand.filter(c => c.rank === rankNeeded).length;
+                    
+                    if (knownCards + declaredCount > 4) {
+                        challenger = i;
+                        break;
+                    }
+                    
+                    const chance = declaredCount === 3 ? 0.3 : declaredCount === 4 ? 0.6 : 0.05;
+                    if (Math.random() < chance) {
+                        challenger = i;
+                        break;
                     }
                 }
-                if (!newHoveredCard) {
-                    if (clickableAreas['quit'] && isMouseInRect(mx, my, clickableAreas['quit'].rect)) { newHoveredButton = 'quit'; cursor = 'pointer'; }
-                    else if (currentPlayerIndex === 0) { 
-                        if (clickableAreas['play'] && isMouseInRect(mx, my, clickableAreas['play'].rect)) { newHoveredButton = 'play'; cursor = 'pointer'; } 
-                        else if (clickableAreas['bs'] && lastPlay.length > 0 && isMouseInRect(mx, my, clickableAreas['bs'].rect) ) { newHoveredButton = 'bs'; cursor = 'pointer'; }
-                    }
-                }
-            } else if (gameState === 'START_MENU' || gameState === 'SETTINGS_MENU' || gameState === 'GAME_OVER') {
-                const keys = Object.keys(clickableAreas);
-                for (const key of keys) {
-                    if (!key.startsWith('card_')) {
-                        const area = clickableAreas[key];
-                        if (area && area.rect && isMouseInRect(mx, my, area.rect)) { newHoveredButton = key; cursor = 'pointer'; break; }
-                    }
+
+                if (challenger !== null) {
+                    setTimeout(() => {
+                        showToast(`${this.players[challenger].name} calls Bullshit!`);
+                        this.resolveGameLogic(true, challenger);
+                    }, 800);
                 }
             }
-            canvas.style.cursor = cursor;
-            if (newHoveredCard && newHoveredCard !== currentHoverCard) { if (currentHoverCard) currentHoverCard.isHovered = false; newHoveredCard.isHovered = true; currentHoverCard = newHoveredCard; } 
-            else if (!newHoveredCard && currentHoverCard) { currentHoverCard.isHovered = false; currentHoverCard = null; }
-            hoveredButtonKey = newHoveredButton;
-            if (newHoveredButton && currentHoverCard) { currentHoverCard.isHovered = false; currentHoverCard = null; }
-        });
-        
-        canvas.addEventListener('mouseleave', () => {
-            if (currentHoverCard) { currentHoverCard.isHovered = false; currentHoverCard = null; }
-            hoveredButtonKey = null; canvas.style.cursor = 'default';
-        });
 
-        // --- Start Game ---
-        createTablePattern(tableColor, selectedTableTexture); // Use new function and setting
-        gameLoop();
+            botChallengeDecision() {
+                let challenger = null;
+                const rankNeeded = this.lastMove.declaredRank;
+                const declaredCount = this.lastMove.declaredCount;
 
+                for (let i = 1; i <= this.activeBotCount; i++) {
+                    const bot = this.players[i];
+                    const knownCards = bot.hand.filter(c => c.rank === rankNeeded).length;
+                    
+                    if (knownCards + declaredCount > 4) {
+                        challenger = i;
+                        break;
+                    }
+                    if (Math.random() < (declaredCount * 0.15)) {
+                        challenger = i;
+                        break;
+                    }
+                }
+
+                if (challenger !== null) {
+                    showToast(`${this.players[challenger].name} calls Bullshit!`);
+                    this.resolveGameLogic(true, challenger);
+                } else {
+                    setTimeout(() => this.resolveGameLogic(false, null), 1500);
+                }
+            }
+
+            resolveChallenge(userCalledBS) {
+                if (userCalledBS) {
+                    this.resolveGameLogic(true, 0);
+                } else {
+                    this.resolveGameLogic(false, null);
+                }
+            }
+
+            resolveGameLogic(isChallenge, challengerIndex) {
+                this.gameState = 'resolving';
+                document.getElementById('action-area').innerHTML = ''; 
+
+                if (!isChallenge) {
+                    this.finishTurn();
+                    return;
+                }
+
+                const move = this.lastMove;
+                const playedCards = move.actualCards;
+                const rank = move.declaredRank;
+                
+                const isLying = !playedCards.every(c => c.rank === rank);
+                
+                this.revealPile(playedCards);
+
+                setTimeout(() => {
+                    if (isLying) {
+                        showToast(isChallenge && challengerIndex === 0 ? "Gotcha! They were lying!" : `${this.players[move.playerIndex].name} was Lying!`, 'bg-green-600');
+                        this.pickupPile(move.playerIndex);
+                    } else {
+                        showToast(isChallenge && challengerIndex === 0 ? "Oops! They were honest." : `${this.players[move.playerIndex].name} was Honest!`, 'bg-red-600');
+                        this.pickupPile(challengerIndex);
+                    }
+                    setTimeout(() => this.finishTurn(), 2000);
+                }, 1500);
+            }
+
+            revealPile(lastCards) {
+                const container = document.getElementById('pile-container');
+                container.innerHTML = ''; 
+                lastCards.forEach((card, i) => {
+                    const html = card.getHTML(true);
+                    container.insertAdjacentHTML('beforeend', html);
+                    const el = document.getElementById(card.id);
+                    el.style.position = 'absolute';
+                    el.style.left = `${50 + (i*10) - (lastCards.length*5)}%`;
+                    el.style.top = '50%';
+                    el.style.transform = `translate(-50%, -50%) rotate(${(i-1)*10}deg) scale(1.2)`;
+                    el.style.zIndex = 100;
+                });
+            }
+
+            pickupPile(playerIdx) {
+                const player = this.players[playerIdx];
+                player.hand.push(...this.pile);
+                player.hand.sort((a,b) => a.value - b.value); 
+                
+                this.pile = [];
+                document.getElementById('pile-count-badge').classList.add('hidden');
+                document.getElementById('pile-container').innerHTML = '';
+                this.updateUI();
+            }
+
+            finishTurn() {
+                if (this.checkWinCondition()) return;
+
+                this.turnIndex = (this.turnIndex + 1) % (this.activeBotCount + 1);
+                this.nextRank();
+                
+                // Refresh pile visuals
+                this.updatePileVisuals();
+                
+                this.startTurn();
+            }
+
+            checkWinCondition() {
+                const winner = this.players.find(p => p.hand.length === 0);
+                if (winner) {
+                    this.gameState = 'game_over';
+                    document.getElementById('gameOverModal').classList.remove('hidden');
+                    const title = document.getElementById('winner-title');
+                    const msg = document.getElementById('winner-message');
+                    const icon = document.getElementById('winner-icon');
+                    
+                    if (winner.id === 0) {
+                        title.textContent = "You Win!";
+                        title.className = "text-3xl font-extrabold text-green-600 mb-2";
+                        msg.textContent = "You are the master of deception!";
+                        icon.textContent = "🏆";
+                    } else {
+                        title.textContent = "You Lose!";
+                        title.className = "text-3xl font-extrabold text-red-600 mb-2";
+                        msg.textContent = `${winner.name} emptied their hand first.`;
+                        icon.textContent = "💀";
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            animateMove(playerIdx, cardCount) {
+                const container = document.getElementById('pile-container');
+                let startRect;
+
+                if (playerIdx === 0) {
+                    startRect = document.getElementById('user-hand').getBoundingClientRect();
+                } else {
+                    const visualSlot = this.getVisualSlot(playerIdx);
+                    startRect = document.getElementById(`visual-slot-${visualSlot}`).getBoundingClientRect();
+                }
+                
+                const endRect = container.getBoundingClientRect();
+
+                for(let i=0; i<cardCount; i++) {
+                    const el = document.createElement('div');
+                    el.className = `card fixed z-50`;
+                    el.innerHTML = `<div class="card-back ${currentCardBack}"></div>`;
+                    el.style.left = `${startRect.left + (startRect.width/2)}px`;
+                    el.style.top = `${startRect.top + (startRect.height/2)}px`;
+                    el.style.transform = `translate(-50%, -50%) scale(0.5)`;
+                    document.body.appendChild(el);
+
+                    setTimeout(() => {
+                        el.style.transition = "all 0.5s ease-out";
+                        el.style.left = `${endRect.left + (endRect.width/2)}px`;
+                        el.style.top = `${endRect.top + (endRect.height/2)}px`;
+                        el.style.transform = `translate(-50%, -50%) rotate(${Math.random()*360}deg) scale(0.8)`;
+                        el.style.opacity = 0;
+                    }, 50 * i);
+
+                    setTimeout(() => el.remove(), 600);
+                }
+            }
+        }
+
+        const game = new Game();
     </script>
 </body>
 </html>
-
