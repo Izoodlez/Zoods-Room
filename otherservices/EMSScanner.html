@@ -59,6 +59,7 @@
         input[type=range] {
             /* stylelint-disable-next-line property-no-vendor-prefix */
             -webkit-appearance: none;
+            appearance: none;
             width: 100%;
             background: transparent;
         }
@@ -306,6 +307,7 @@
 
         const MainApp = () => {
             const [view, setView] = useState('windy');
+            const [cadView, setCadView] = useState('lebanon');
             const [location, setLocation] = useState('Lebanon, PA');
             const [searchVal, setSearchVal] = useState('');
             const [showRef, setShowRef] = useState(false);
@@ -402,7 +404,7 @@
                             <div className="flex-1 bg-white rounded-2xl overflow-hidden border border-slate-700 relative shadow-xl">
                                 <div className="absolute top-0 left-0 w-full bg-slate-900 text-slate-400 text-[10px] px-2 py-1 flex justify-between items-center z-10 border-b border-slate-800">
                                     <div className="flex items-center gap-2">
-                                        <span className="font-bold">LIVE CAD STATUS</span>
+                                        <span className="font-bold">LIVE CAD - {cadView === 'lebanon' ? 'LEBANON CO.' : 'DAUPHIN CO.'}</span>
                                         <button 
                                             onClick={() => setCadRefreshKey(prev => prev + 1)}
                                             className="text-slate-400 hover:text-emerald-400 transition-colors"
@@ -411,18 +413,23 @@
                                             {React.cloneElement(Icons.RefreshCw, { size: 12 })}
                                         </button>
                                     </div>
-                                    <a href="https://www.lcdes.org/monitor.html" target="_blank" rel="noopener noreferrer" className="hover:text-white flex items-center gap-1">
-                                        Open External {React.cloneElement(Icons.ExternalLink, { size: 10 })}
-                                    </a>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-700">
+                                            <button onClick={() => setCadView('lebanon')} className={`px-3 py-1 rounded-md text-[9px] font-bold transition-colors ${cadView === 'lebanon' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Lebanon</button>
+                                            <button onClick={() => setCadView('dauphin')} className={`px-3 py-1 rounded-md text-[9px] font-bold transition-colors ${cadView === 'dauphin' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Dauphin</button>
+                                        </div>
+                                        <a href={cadView === 'lebanon' ? 'https://www.lcdes.org/monitor.html' : 'https://dpswebcad.dauphincounty.gov/webcad/'} target="_blank" rel="noopener noreferrer" className="hover:text-white flex items-center gap-1">
+                                            Open External {React.cloneElement(Icons.ExternalLink, { size: 10 })}
+                                        </a>
+                                    </div>
                                 </div>
                                 <div className="w-full h-full pt-6 bg-slate-100 overflow-hidden relative">
                                     <iframe
-                                        key={cadRefreshKey}
-                                        src="https://www.lcdes.org/monitor.html"
-                                        className="iframe-scaler"
+                                        key={`${cadView}-${cadRefreshKey}`}
+                                        src={cadView === 'lebanon' ? 'https://www.lcdes.org/monitor.html' : 'https://dpswebcad.dauphincounty.gov/webcad/'}
+                                        className={cadView === 'lebanon' ? 'iframe-scaler' : 'w-full h-full'}
                                         loading="lazy"
                                     />
-
                                 </div>
                             </div>
 
