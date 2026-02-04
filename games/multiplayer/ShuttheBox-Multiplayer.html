@@ -390,11 +390,12 @@
         .btn-roll:hover { background: #ffca57; box-shadow: 0 0 15px rgba(255, 189, 46, 0.4); }
         .btn-roll:disabled { background: #444; color: #777; cursor: not-allowed; }
 
-        .btn-confirm { background: var(--accent-blue); color: #fff; display: none; }
+        .btn-confirm { background: var(--accent-blue); color: #fff; display: none; min-width: 160px; }
         .btn-confirm:hover { background: #4aa3df; }
 
-        .btn-end { background: var(--accent-red); color: #fff; }
+        .btn-end { background: var(--accent-red); color: #fff; min-width: 160px; }
         .btn-end:hover { background: #ec7063; }
+        .btn-end:disabled { background: #444; color: #777; cursor: not-allowed; }
 
         .warning-modal {
             display: none;
@@ -473,6 +474,175 @@
         }
 
         .hidden { display: none !important; }
+
+        .scoreboard-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .scoreboard-modal.active {
+            display: flex;
+        }
+
+        .scoreboard-content {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 3px solid var(--accent-gold);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            text-align: center;
+            z-index: 2001;
+            box-shadow: 0 10px 50px rgba(255, 189, 46, 0.3);
+        }
+
+        .scoreboard-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .scoreboard-subtitle {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .scoreboard-results {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .score-row-item {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .score-row-item:hover {
+            background: rgba(255,189,46,0.1);
+            border-color: var(--accent-gold);
+            transform: scale(1.02);
+        }
+
+        .score-row-item.winner {
+            background: rgba(255,189,46,0.15);
+            border-color: var(--accent-gold);
+            box-shadow: 0 0 20px rgba(255,189,46,0.3);
+        }
+
+        .player-name-score {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .player-avatar-small {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .player-score-info {
+            text-align: left;
+        }
+
+        .player-name-label {
+            font-size: 0.9rem;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .player-type-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .player-final-score {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .winner-badge {
+            background: var(--accent-gold);
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .scoreboard-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .scoreboard-buttons button {
+            padding: 12px 30px;
+            font-size: 1rem;
+        }
+
+        .score-row-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 20px;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .score-row-item.winner {
+            background: rgba(255,189,46,0.15);
+            border: 2px solid var(--accent-gold);
+            box-shadow: 0 0 20px rgba(255,189,46,0.3);
+        }
+
+        .winner-badge {
+            background: var(--accent-gold);
+            color: #000;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-left: 15px;
+        }
     </style>
 </head>
 <body>
@@ -546,6 +716,21 @@
         </div>
     </div>
 
+    <!-- Scoreboard Modal -->
+    <div class="scoreboard-modal" id="scoreboardModal">
+        <div class="scoreboard-content">
+            <div class="scoreboard-title">🎰 Game Over</div>
+            <div class="scoreboard-subtitle" id="scoreboardSubtitle">Final Scores</div>
+            <div class="scoreboard-results" id="scoreboardResults">
+                <!-- Generated dynamically -->
+            </div>
+            <div class="scoreboard-buttons">
+                <button class="btn-roll" onclick="returnToLobbyFromScoreboard()">Return to Lobby</button>
+                <button class="btn-confirm" onclick="playAgain()">Play Again</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div class="toast" id="toast"></div>
 
@@ -574,6 +759,8 @@
         let lobbyId = null;
         let lobbyPlayers = {};
         let lobbyRef = null;
+        let playerTurnsCompleted = {}; // Track how many turns each player has completed
+        let scoreboardShown = false;
 
         // Initialize on load
         window.addEventListener('load', async () => {
@@ -635,11 +822,21 @@
         function setupRealtimeSync() {
             lobbyRef = onLobbyUpdate((lobbyData) => {
                 lobbyPlayers = lobbyData.players || {};
+                const myUUID = getPlayerUUID();
+                isLocalPlayer = !!lobbyPlayers[myUUID] && !lobbyPlayers[myUUID].isBot;
                 updateLobbyInfo();
                 updatePlayerHUD();
 
                 // Ensure turn order is established (ignore bots)
                 ensureTurnOrder(lobbyData);
+                
+                // Initialize playerTurnsCompleted for all players if not already done
+                const turnPlayers = getTurnPlayers();
+                turnPlayers.forEach(playerId => {
+                    if (!playerTurnsCompleted[playerId]) {
+                        playerTurnsCompleted[playerId] = 0;
+                    }
+                });
 
                 // Sync match state from Firebase
                 if (lobbyData.matchState) {
@@ -882,6 +1079,16 @@
             if (!isMyTurn) return;
             const score = calculateScore();
             updatePlayerScore(score);
+            
+            // Increment turn completion for current player
+            const currentPlayerId = getPlayerUUID();
+            playerTurnsCompleted[currentPlayerId] = (playerTurnsCompleted[currentPlayerId] || 0) + 1;
+            const completedTurns = {
+                ...(currentMatchState && currentMatchState.completedTurns ? currentMatchState.completedTurns : {}),
+                [currentPlayerId]: playerTurnsCompleted[currentPlayerId]
+            };
+            updateMatchState({ completedTurns });
+            
             syncGameMove({
                 type: 'turn_end',
                 finalScore: score
@@ -889,10 +1096,26 @@
             gameState = 'IDLE';
             showToast('Turn ended. Waiting for next player...');
 
-            advanceTurn();
+            // Check if all players have completed 1 turn
+            const turnOrder = (currentMatchState && Array.isArray(currentMatchState.turnOrder) && currentMatchState.turnOrder.length)
+                ? currentMatchState.turnOrder
+                : getTurnPlayers();
+            
+            const allCompleted = turnOrder.every(playerId => (completedTurns[playerId] || 0) >= 1);
+            
+            if (allCompleted) {
+                if (isHostClient()) {
+                    finishGame();
+                } else {
+                    showToast('Waiting for host to finalize results...');
+                }
+            } else {
+                advanceTurn();
+            }
         }
 
         function advanceTurn() {
+            if (currentMatchState && currentMatchState.gameOver) return;
             const realPlayers = getRealPlayers();
             if (!currentTurnId || realPlayers.length < MIN_REAL_PLAYERS) return;
 
@@ -924,6 +1147,9 @@
         function syncFromFirebase(matchState) {
             // Handle incoming game state updates
             currentMatchState = matchState;
+            if (matchState.completedTurns) {
+                playerTurnsCompleted = matchState.completedTurns;
+            }
             if (matchState.currentTurn) {
                 currentTurnId = matchState.currentTurn;
                 const myUUID = getPlayerUUID();
@@ -950,6 +1176,10 @@
                         });
                     }
                 }
+            }
+
+            if (matchState.gameOver && matchState.rankings && !scoreboardShown) {
+                showScoreboard(matchState.rankings, matchState.winner);
             }
 
             if (matchState.lastMove) {
@@ -1053,7 +1283,158 @@
             // Update bot score and end turn
             const score = calculateScore();
             await updateBotScore(botId, score);
-            advanceTurn();
+            
+            // Increment turn completion for bot
+            playerTurnsCompleted[botId] = (playerTurnsCompleted[botId] || 0) + 1;
+            const completedTurns = {
+                ...(currentMatchState && currentMatchState.completedTurns ? currentMatchState.completedTurns : {}),
+                [botId]: playerTurnsCompleted[botId]
+            };
+            updateMatchState({ completedTurns });
+            
+            // Check if all players have completed 1 turn
+            const turnOrder = (currentMatchState && Array.isArray(currentMatchState.turnOrder) && currentMatchState.turnOrder.length)
+                ? currentMatchState.turnOrder
+                : getTurnPlayers();
+            
+            const allCompleted = turnOrder.every(playerId => (completedTurns[playerId] || 0) >= 1);
+            
+            if (allCompleted) {
+                if (isHostClient()) {
+                    finishGame();
+                }
+            } else {
+                advanceTurn();
+            }
+        }
+
+        function finishGame() {
+            gameState = 'IDLE';
+            
+            // Determine winner (lowest score wins in Shut the Box)
+            let winnerPlayerId = null;
+            let lowestScore = Infinity;
+            const playerScores = {};
+            
+            Object.entries(lobbyPlayers).forEach(([playerId, player]) => {
+                const score = player.score || 0;
+                playerScores[playerId] = score;
+                if (score < lowestScore) {
+                    lowestScore = score;
+                    winnerPlayerId = playerId;
+                }
+            });
+            
+            console.log("Game finished! Winner:", winnerPlayerId, "Score:", lowestScore);
+            
+            // Increment winner's totalWins
+            if (winnerPlayerId) {
+                incrementPlayerWins(lobbyId, winnerPlayerId);
+            }
+            
+            // Create rankings based on final scores (ascending - lower is better)
+            const rankings = Object.entries(playerScores)
+                .sort((a, b) => a[1] - b[1])
+                .map(([playerId, score], index) => ({
+                    playerId,
+                    playerName: lobbyPlayers[playerId].name,
+                    score,
+                    rank: index + 1,
+                    isWinner: playerId === winnerPlayerId
+                }));
+
+            updateMatchState({
+                gameOver: true,
+                winner: winnerPlayerId,
+                rankings
+            });
+
+            showScoreboard(rankings, winnerPlayerId);
+        }
+
+        function showScoreboard(rankings, winnerPlayerId) {
+            populateScoreboard(rankings, winnerPlayerId);
+            document.getElementById('scoreboardModal').classList.add('active');
+            scoreboardShown = true;
+        }
+
+        function populateScoreboard(rankings, winnerPlayerId) {
+            const resultsContainer = document.getElementById('scoreboardResults');
+            resultsContainer.innerHTML = '';
+            
+            rankings.forEach((entry) => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'score-row-item';
+                
+                const rankDisplay = ['🥇', '🥈', '🥉'][entry.rank - 1] || `#${entry.rank}`;
+                const winnerBadge = entry.isWinner ? '<span class="winner-badge">👑 WINNER</span>' : '';
+                
+                resultItem.innerHTML = `
+                    <div class="score-display" style="display: flex; align-items: center; width: 100%; gap: 15px;">
+                        <div style="font-size: 1.8rem; min-width: 50px;">${rankDisplay}</div>
+                        <div class="player-name-score" style="flex: 1;">
+                            <div class="player-name-label" style="color: #aaa; font-size: 0.8rem;">Player</div>
+                            <div style="font-size: 1.2rem; font-weight: bold;">${entry.playerName}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #aaa; font-size: 0.8rem;">SCORE</div>
+                            <div class="player-final-score" style="font-size: 1.3rem; font-weight: bold; color: #ffbd2e;">${entry.score}</div>
+                        </div>
+                        ${winnerBadge}
+                    </div>
+                `;
+                
+                if (entry.isWinner) {
+                    resultItem.classList.add('winner');
+                }
+                
+                resultsContainer.appendChild(resultItem);
+            });
+        }
+
+        function returnToLobbyFromScoreboard() {
+            document.getElementById('scoreboardModal').classList.remove('active');
+            leaveLobby().then(() => {
+                if (lobbyRef) {
+                    offLobbyUpdate(lobbyRef);
+                }
+                window.location.href = '../../lobby.html';
+            });
+        }
+
+        function playAgain() {
+            document.getElementById('scoreboardModal').classList.remove('active');
+            
+            // Reset game state
+            shutTiles = [];
+            diceSum = 0;
+            selectedTiles = [];
+            gameState = 'WAITING';
+            playerTurnsCompleted = {};
+            scoreboardShown = false;
+            
+            // Re-initialize tiles
+            initTiles();
+            
+            // Reset match state
+            const turnPlayers = getTurnPlayers();
+            turnPlayers.forEach(playerId => {
+                playerTurnsCompleted[playerId] = 0;
+            });
+            
+            // Start new game
+            updateMatchState({
+                status: 'playing',
+                turnOrder: turnPlayers,
+                currentTurn: turnPlayers[0],
+                round: (currentMatchState.round || 1) + 1,
+                gameOver: false,
+                winner: null,
+                rankings: null,
+                completedTurns: {}
+            });
+            
+            showToast('New game started!');
         }
     </script>
 </body>

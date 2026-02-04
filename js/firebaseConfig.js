@@ -92,7 +92,12 @@ async function createLobby(gameType = 'unknown', isPrivate = true) {
     isPrivate: !!isPrivate,
     createdAt: firebase.database.ServerValue.TIMESTAMP,
     players: {},
-    state: {}
+        matchState: {
+            status: 'waiting',
+            turnOrder: [],
+            currentTurn: null,
+            round: 1
+        }
   };
 
   await lobbyRef.set(lobbyData);
@@ -101,7 +106,7 @@ async function createLobby(gameType = 'unknown', isPrivate = true) {
 }
 
 // Join a lobby by ID or key
-async function joinLobby(lobbyIdOrKey) {
+async function joinLobby(lobbyIdOrKey, username = null) {
   if (!db) throw new Error('Firebase not initialized');
 
   let lobbyId = null;
@@ -121,10 +126,14 @@ async function joinLobby(lobbyIdOrKey) {
   sessionStorage.setItem('playerUUID', playerId);
 
   const playerRef = db.ref(`lobbies/${lobbyId}/players/${playerId}`);
+  const playerName = username || `Player-${playerId.slice(0,4)}`;
   await playerRef.set({
     id: playerId,
     joinedAt: firebase.database.ServerValue.TIMESTAMP,
-    name: `Player-${playerId.slice(0,4)}`
+        name: playerName,
+        score: 0,
+        totalWins: 0,
+        isBot: false
   });
 
   window.currentLobbyId = lobbyId;
@@ -259,6 +268,7 @@ async function addBotPlayer(botName = "Bot", lobbyId = null) {
             joinedAt: Date.now(),
             isBot: true,
             score: 0,
+            totalWins: 0,
             status: "lobby"
         });
 
@@ -367,4 +377,38 @@ function getCurrentLobbyId() {
 // Get current player UUID
 function getPlayerUUID() {
     return playerUUID || sessionStorage.getItem('playerUUID') || null;
+}
+
+// Increment player wins (used in game end-game scenarios)
+async function incrementPlayerWins(lobbyId, playerId) {
+    if (!db) {
+        console.error("Firebase not initialized");
+        return false;
+    }
+
+    const id = lobbyId || window.currentLobbyId;
+    if (!id) return false;
+
+    try {
+        const playerRef = db.ref(`lobbies/${id}/players/${playerId}`);
+        const snapshot = await playerRef.once('value');
+        
+        if (snapshot.exists()) {
+            const player = snapshot.val();
+            const currentWins = player.totalWins || 0;
+            await playerRef.update({
+                totalWins: currentWins + 1
+            });
+        } else {
+            await playerRef.set({
+                totalWins: 1
+            });
+        }
+        
+        console.log("Incremented wins for player:", playerId);
+        return true;
+    } catch (error) {
+        console.error("Error incrementing player wins:", error);
+        return false;
+    }
 }

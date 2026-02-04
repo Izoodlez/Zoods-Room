@@ -339,7 +339,7 @@
 </head>
 <body>
     <header>
-        <h1>🎲 ZOODS ROOM 🎲</h1>
+        <h1><a href="index.html" style="color: var(--accent-gold); text-decoration: none;">🎲 ZOODS ROOM 🎲</a></h1>
         <p>Multiplayer Lobby System</p>
     </header>
 
@@ -349,23 +349,16 @@
             <h2>Quick Play</h2>
             
             <div class="input-group">
+                <label>Your Username</label>
+                <input type="text" id="usernameInput" placeholder="Enter your name..." maxlength="20">
+            </div>
+
+            <div class="input-group">
                 <label>Select Game</label>
                 <select id="gameSelect">
                     <option value="">Choose a game...</option>
-                    <optgroup label="Dice Games">
-                        <option value="ShuttheBox">Shut the Box</option>
-                        <option value="DicePoker">Dice Poker</option>
-                        <option value="Ceelo">Ceelo</option>
-                    </optgroup>
-                    <optgroup label="Card Games">
-                        <option value="Bullshit">Bullshit</option>
-                        <option value="LiarsTable">Liar's Table</option>
-                        <option value="UnoGarbage">Uno Garbage</option>
-                    </optgroup>
-                    <optgroup label="Board Games">
-                        <option value="Chess">Chess</option>
-                        <option value="Monopoly">Monopoly</option>
-                    </optgroup>
+                    <option value="ShuttheBox">Shut the Box</option>
+                    <option value="DicePoker">Dice Poker</option>
                 </select>
             </div>
 
@@ -479,10 +472,17 @@
 
         async function findPublicMatch() {
             const gameSelect = document.getElementById('gameSelect');
+            const usernameInput = document.getElementById('usernameInput');
             const gameType = gameSelect.value;
+            const username = usernameInput.value.trim();
 
             if (!gameType) {
                 showStatus('publicStatus', 'Please select a game', 'error');
+                return;
+            }
+
+            if (!username) {
+                showStatus('publicStatus', 'Please enter your username', 'error');
                 return;
             }
 
@@ -500,7 +500,7 @@
                     
                     if (result && result.lobbyId) {
                         // Join the lobby we just created
-                        await joinLobby(result.lobbyId);
+                        await joinLobby(result.lobbyId, username);
                         window.currentLobbyId = result.lobbyId;
                         loadLobbyUI(result.lobbyId);
                         showStatus('publicStatus', '✓ Lobby created! Waiting for players...', 'waiting');
@@ -510,6 +510,7 @@
                 } else {
                     // Found a lobby, load it
                     const lobbyId = result.lobbyId || result;
+                    await joinLobby(lobbyId, username);
                     window.currentLobbyId = lobbyId;
                     loadLobbyUI(lobbyId);
                     showStatus('publicStatus', '✓ Matched! Waiting for game to start...', 'waiting');
@@ -524,10 +525,17 @@
 
         async function createPrivateMatch() {
             const gameSelect = document.getElementById('gameSelect');
+            const usernameInput = document.getElementById('usernameInput');
             const gameType = gameSelect.value;
+            const username = usernameInput.value.trim();
 
             if (!gameType) {
                 showStatus('privateStatus', 'Please select a game', 'error');
+                return;
+            }
+
+            if (!username) {
+                showStatus('privateStatus', 'Please enter your username', 'error');
                 return;
             }
 
@@ -540,7 +548,7 @@
                 
                 if (result && result.lobbyId && result.lobbyKey) {
                     // Join the lobby we just created
-                    await joinLobby(result.lobbyId);
+                    await joinLobby(result.lobbyId, username);
                     window.currentLobbyId = result.lobbyId;
                     
                     // Display the lobby key
@@ -578,16 +586,23 @@
 
         async function joinByKey() {
             const key = document.getElementById('keyInput').value.trim();
+            const usernameInput = document.getElementById('usernameInput');
+            const username = usernameInput.value.trim();
 
             if (!key) {
                 showStatus('joinStatus', 'Enter a lobby key', 'error');
                 return;
             }
 
+            if (!username) {
+                showStatus('joinStatus', 'Please enter your username', 'error');
+                return;
+            }
+
             setButtonLoading('joinKeyBtn', true);
 
             try {
-                const lobby = await joinLobby(key);
+                const lobby = await joinLobby(key, username);
                 if (lobby) {
                     window.currentLobbyId = lobby;
                     loadLobbyUI(window.currentLobbyId);
@@ -661,7 +676,7 @@
                         <div class="${avatarClass}">${initials}</div>
                         <div class="player-info">
                             <div class="player-name">${playerName}</div>
-                            <div class="player-score">Score: ${player.score || 0}</div>
+                            <div class="player-score">Wins: ${player.totalWins || 0}</div>
                         </div>
                         ${badge}
                     `;
