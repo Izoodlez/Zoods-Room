@@ -585,7 +585,7 @@
         }
 
         async function joinByKey() {
-            const key = document.getElementById('keyInput').value.trim();
+            const key = document.getElementById('keyInput').value.trim().toUpperCase();
             const usernameInput = document.getElementById('usernameInput');
             const username = usernameInput.value.trim();
 

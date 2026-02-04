@@ -110,14 +110,17 @@ async function joinLobby(lobbyIdOrKey, username = null) {
   if (!db) throw new Error('Firebase not initialized');
 
   let lobbyId = null;
+    const normalizedKey = (typeof lobbyIdOrKey === 'string')
+        ? lobbyIdOrKey.trim().toUpperCase()
+        : lobbyIdOrKey;
 
   // If looks like a short key (6 chars) try to resolve to lobbyId
-  if (typeof lobbyIdOrKey === 'string' && lobbyIdOrKey.length === 6) {
-    const snap = await db.ref('lobbies').orderByChild('key').equalTo(lobbyIdOrKey).once('value');
+    if (typeof normalizedKey === 'string' && normalizedKey.length === 6) {
+        const snap = await db.ref('lobbies').orderByChild('key').equalTo(normalizedKey).once('value');
     if (!snap.exists()) throw new Error('Lobby key not found');
     snap.forEach(child => { lobbyId = child.key; }); // pick the first
   } else {
-    lobbyId = lobbyIdOrKey;
+        lobbyId = lobbyIdOrKey;
   }
 
   if (!lobbyId) throw new Error('Invalid lobby identifier');
