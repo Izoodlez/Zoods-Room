@@ -451,6 +451,27 @@
             font-weight: bold;
             margin: 10px 0;
         }
+
+        .spectating-banner {
+            background: rgba(52, 152, 219, 0.18);
+            border: 2px solid var(--accent-blue);
+            border-radius: 10px;
+            padding: 12px 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #d6ebff;
+            font-weight: bold;
+            width: 100%;
+            max-width: 640px;
+        }
+
+        .spectating-banner .subtext {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -465,6 +486,7 @@
     <main>
         <div class="game-area">
             <div class="game-status" id="game-status">Waiting for game to start...</div>
+            <div id="spectating-banner" class="spectating-banner" style="display: none;"></div>
             
             <!-- Ready-Up Section -->
             <div id="ready-section" class="ready-section" style="display: none;">
@@ -637,6 +659,8 @@
         let isReadyCheckInProgress = false;
         let isNextRoundCheckInProgress = false;
         let playerTurnComplete = false; // Track if current player completed their turn
+        let spectatorView = null;
+        let preparedRollingTurnId = null;
 
         // ==============================
         // INITIALIZATION
@@ -983,6 +1007,124 @@
             }
         }
 
+        function getPlayerDisplayName(playerId) {
+            if (!playerId) return 'Player';
+            const player = lobbyPlayers[playerId];
+            return player ? (player.name || 'Player') : 'Player';
+        }
+
+        function getSpectatorActionText(lastAction) {
+            if (!lastAction || !lastAction.type) return 'Watching live turn...';
+
+            if (lastAction.type === 'turn_start') return 'Turn started';
+            if (lastAction.type === 'hold_toggle') return 'Updated held dice';
+            if (lastAction.type === 'roll') {
+                const rolls = lastAction.rollsLeft;
+                return typeof rolls === 'number' ? `Rolled dice (${rolls} rolls left)` : 'Rolled dice';
+            }
+            if (lastAction.type === 'end_turn') return 'Ended turn';
+            return 'Watching live turn...';
+        }
+
+        function buildInitialSpectatorView(playerId) {
+            return {
+                playerId,
+                playerName: getPlayerDisplayName(playerId),
+                dice: [0, 0, 0, 0, 0],
+                heldDice: [false, false, false, false, false],
+                rollsLeft: 2,
+                score: 0,
+                handName: 'Roll to see your hand!',
+                updatedAt: Date.now()
+            };
+        }
+
+        function applySpectatorViewState(viewState) {
+            if (!viewState) return;
+            if (!Array.isArray(viewState.dice) || viewState.dice.length !== 5) return;
+            if (!Array.isArray(viewState.heldDice) || viewState.heldDice.length !== 5) return;
+
+            dice = [...viewState.dice];
+            heldDice = [...viewState.heldDice];
+            rollsLeft = typeof viewState.rollsLeft === 'number' ? viewState.rollsLeft : 2;
+            currentScore = typeof viewState.score === 'number' ? viewState.score : 0;
+
+            document.getElementById('rolls-left').textContent = rollsLeft;
+            document.getElementById('current-score').textContent = currentScore;
+            document.getElementById('hand-result').textContent = viewState.handName || 'Roll to see your hand!';
+            renderDice();
+        }
+
+        function updateSpectatingBanner() {
+            const banner = document.getElementById('spectating-banner');
+            const rollBtn = document.getElementById('roll-btn');
+            const endTurnBtn = document.getElementById('end-turn-btn');
+
+            if (!banner || !rollBtn || !endTurnBtn) return;
+
+            rollBtn.textContent = '🎲 Roll Dice';
+            endTurnBtn.textContent = '✓ End Turn';
+
+            if (!currentMatchState || currentMatchState.status !== 'playing' || !currentMatchState.currentTurn) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            const isMyTurn = currentMatchState.currentTurn === playerUUID;
+            if (isMyTurn && !playerTurnComplete && !hasFolded) {
+                banner.style.display = 'none';
+                return;
+            }
+
+            const targetPlayerId = currentMatchState.currentTurn;
+            const targetName = getPlayerDisplayName(targetPlayerId);
+            const lastAction = currentMatchState.lastAction || {};
+            const actionText = lastAction.playerId === targetPlayerId
+                ? getSpectatorActionText(lastAction)
+                : 'Watching live turn...';
+
+            banner.style.display = 'block';
+            banner.innerHTML = `👀 Spectating <strong>${targetName}</strong><span class="subtext">${actionText}</span>`;
+
+            rollBtn.textContent = `👀 Spectating ${targetName}`;
+            endTurnBtn.textContent = '⌛ Waiting...';
+        }
+
+        async function syncSpectatorView(actionType) {
+            if (!lobbyId || !currentMatchState || currentMatchState.status !== 'playing') return;
+            if (currentMatchState.currentTurn !== playerUUID) return;
+
+            const viewState = {
+                playerId: playerUUID,
+                playerName: getPlayerDisplayName(playerUUID),
+                dice: [...dice],
+                heldDice: [...heldDice],
+                rollsLeft,
+                score: currentScore,
+                handName: document.getElementById('hand-result').textContent || 'Roll to see your hand!',
+                updatedAt: Date.now()
+            };
+
+            const lastAction = {
+                type: actionType,
+                playerId: playerUUID,
+                playerName: getPlayerDisplayName(playerUUID),
+                rollsLeft,
+                updatedAt: viewState.updatedAt
+            };
+
+            spectatorView = viewState;
+
+            try {
+                await updateGameSpecificState(GAME_TYPE, {
+                    spectatorView: viewState,
+                    lastAction: lastAction
+                }, lobbyId);
+            } catch (error) {
+                console.error('Failed to sync spectator view:', error);
+            }
+        }
+
         function handleTurnLogic() {
             if (!currentMatchState) {
                 console.log('No match state defined');
@@ -1038,15 +1180,29 @@
                 console.log('Playing phase - isMyTurn:', isMyTurn, 'playerTurnComplete:', playerTurnComplete);
                 bettingStarted = false;
                 if (isMyTurn && !hasFolded && !playerTurnComplete) {
-                    enableRollingControls();
+                    if (preparedRollingTurnId !== currentMatchState.currentTurn) {
+                        resetTurn();
+                        preparedRollingTurnId = currentMatchState.currentTurn;
+                        syncSpectatorView('turn_start');
+                    }
+                    document.getElementById('roll-btn').disabled = false;
+                    document.getElementById('end-turn-btn').disabled = true;
                     showToast("Your turn to roll!");
                 } else {
+                    preparedRollingTurnId = null;
                     disableControls();
+
+                    const remoteView = currentMatchState.spectatorView;
+                    const currentTurnId = currentMatchState.currentTurn;
+                    if (remoteView && remoteView.playerId === currentTurnId) {
+                        applySpectatorViewState(remoteView);
+                    }
                 }
                 // Bot rolling
                 if (isHostClient() && currentPlayer && currentPlayer.isBot) {
                     setTimeout(() => runBotRoll(currentMatchState.currentTurn), 2000);
                 }
+                updateSpectatingBanner();
                 return;
             }
         }
@@ -1068,6 +1224,8 @@
                 bettingStarter = matchState.bettingStarter;
             }
 
+            spectatorView = matchState.spectatorView || null;
+
             if (matchState.status === 'waiting') {
                 scoreboardShown = false;
                 gameStarted = false;
@@ -1075,6 +1233,8 @@
                 bettingStarted = false;
                 bettingStarter = null;
                 playerTurnComplete = false;
+                preparedRollingTurnId = null;
+                spectatorView = null;
                 rollsLeft = 2;
                 currentScore = 0;
                 dice = [0, 0, 0, 0, 0];
@@ -1085,6 +1245,25 @@
                 if (scoreboardModal) {
                     scoreboardModal.classList.remove('active');
                 }
+            }
+
+            if (matchState.status === 'betting') {
+                preparedRollingTurnId = null;
+                spectatorView = null;
+                updateSpectatingBanner();
+            }
+
+            if (matchState.status === 'playing') {
+                const isMyTurn = matchState.currentTurn === playerUUID;
+                if (!isMyTurn && spectatorView && spectatorView.playerId === matchState.currentTurn) {
+                    applySpectatorViewState(spectatorView);
+                }
+                updateSpectatingBanner();
+            }
+
+            if (matchState.status === 'finished') {
+                preparedRollingTurnId = null;
+                updateSpectatingBanner();
             }
 
             if (matchState.status === 'finished') {
@@ -1174,9 +1353,11 @@
                 } else {
                     const currentPlayer = lobbyPlayers[currentMatchState.currentTurn];
                     const playerName = currentPlayer ? currentPlayer.name : 'Player';
-                    statusEl.textContent = `⏳ Waiting for ${playerName} to roll...`;
+                    statusEl.textContent = `👀 Spectating ${playerName} - live turn in progress`;
                 }
             }
+
+            updateSpectatingBanner();
         }
 
         function updatePotDisplay() {
@@ -1249,6 +1430,8 @@
                 completedRolling: {},
                 playerStates: playerStates,
                 nextRoundReady: {},
+                spectatorView: null,
+                lastAction: null,
                 finishLocked: false,
                 gameOver: false,
                 winner: null,
@@ -1322,7 +1505,9 @@
                 playerBets: {},
                 folded: {},
                 completedBetting: {},
-                completedRolling: {}
+                completedRolling: {},
+                spectatorView: null,
+                lastAction: null
             };
             
             // Update Firebase and wait for completion
@@ -1575,7 +1760,15 @@
                         // Persist to Firebase
                         await updateGameSpecificState(GAME_TYPE, {
                             status: 'playing',
-                            currentTurn: startPlayer
+                            currentTurn: startPlayer,
+                            spectatorView: buildInitialSpectatorView(startPlayer),
+                            lastAction: {
+                                type: 'turn_start',
+                                playerId: startPlayer,
+                                playerName: getPlayerDisplayName(startPlayer),
+                                rollsLeft: 2,
+                                updatedAt: Date.now()
+                            }
                         }, lobbyId);
                     }
                 } else {
@@ -1683,6 +1876,7 @@
             
             heldDice[index] = !heldDice[index];
             renderDice();
+            syncSpectatorView('hold_toggle');
         }
 
         async function rollDice() {
@@ -1696,6 +1890,8 @@
             
             renderDice();
             evaluateHand();
+
+            await syncSpectatorView('roll');
 
             if (rollsLeft === 0) {
                 document.getElementById('roll-btn').disabled = true;
@@ -1757,6 +1953,7 @@
 
             await db.ref(`lobbies/${lobbyId}/players/${playerUUID}/score`).set(currentScore);
             await db.ref(`lobbies/${lobbyId}/gameStates/${GAME_TYPE}/completedRolling/${playerUUID}`).set(true);
+            await syncSpectatorView('end_turn');
             
             // Mark this turn as complete locally to prevent re-enabling controls before turn advances
             playerTurnComplete = true;
@@ -1814,8 +2011,17 @@
                     }
                     
                     console.log('Advancing to next roller index:', nextIndex, 'player:', lobbyPlayers[turnOrder[nextIndex]]?.name);
+                    const nextPlayer = turnOrder[nextIndex];
                     await updateGameSpecificState(GAME_TYPE, {
-                        currentTurn: turnOrder[nextIndex]
+                        currentTurn: nextPlayer,
+                        spectatorView: buildInitialSpectatorView(nextPlayer),
+                        lastAction: {
+                            type: 'turn_start',
+                            playerId: nextPlayer,
+                            playerName: getPlayerDisplayName(nextPlayer),
+                            rollsLeft: 2,
+                            updatedAt: Date.now()
+                        }
                     }, lobbyId);
                     console.log('Firebase updated with new currentTurn');
                 }
@@ -1933,6 +2139,27 @@
         async function runBotRoll(botId) {
             let botDice = [0, 0, 0, 0, 0];
             let botHeld = [false, false, false, false, false];
+            let botScore = 0;
+
+            await updateGameSpecificState(GAME_TYPE, {
+                spectatorView: {
+                    playerId: botId,
+                    playerName: getPlayerDisplayName(botId),
+                    dice: [...botDice],
+                    heldDice: [...botHeld],
+                    rollsLeft: 2,
+                    score: botScore,
+                    handName: 'Roll to see your hand!',
+                    updatedAt: Date.now()
+                },
+                lastAction: {
+                    type: 'turn_start',
+                    playerId: botId,
+                    playerName: getPlayerDisplayName(botId),
+                    rollsLeft: 2,
+                    updatedAt: Date.now()
+                }
+            }, lobbyId);
             
             for (let roll = 0; roll < 2; roll++) {
                 botDice = botDice.map((val, i) => botHeld[i] ? val : Math.floor(Math.random() * 6) + 1);
@@ -1947,13 +2174,42 @@
                         }
                     });
                 }
+
+                botScore = calculateBotScore(botDice);
+
+                await updateGameSpecificState(GAME_TYPE, {
+                    spectatorView: {
+                        playerId: botId,
+                        playerName: getPlayerDisplayName(botId),
+                        dice: [...botDice],
+                        heldDice: [...botHeld],
+                        rollsLeft: 1 - roll,
+                        score: botScore,
+                        handName: getHandName(botScore) || 'High Card',
+                        updatedAt: Date.now()
+                    },
+                    lastAction: {
+                        type: 'roll',
+                        playerId: botId,
+                        playerName: getPlayerDisplayName(botId),
+                        rollsLeft: 1 - roll,
+                        updatedAt: Date.now()
+                    }
+                }, lobbyId);
+
+                await new Promise(resolve => setTimeout(resolve, 700));
             }
-            
-            const botScore = calculateBotScore(botDice);
             
             await db.ref(`lobbies/${lobbyId}/players/${botId}/score`).set(botScore);
             await updateGameSpecificState(GAME_TYPE, {
-                [`completedRolling/${botId}`]: true
+                [`completedRolling/${botId}`]: true,
+                lastAction: {
+                    type: 'end_turn',
+                    playerId: botId,
+                    playerName: getPlayerDisplayName(botId),
+                    rollsLeft: 0,
+                    updatedAt: Date.now()
+                }
             }, lobbyId);
             
             showToast(`${lobbyPlayers[botId].name} rolled! Score: ${botScore}`);
@@ -2099,7 +2355,9 @@
                     winners: winnerIds,
                     rankings: rankings,
                     status: 'finished',
-                    nextRoundReady: nextRoundReady
+                    nextRoundReady: nextRoundReady,
+                    spectatorView: null,
+                    lastAction: null
                 }, lobbyId);
                 
                 showScoreboard(rankings, winnerIds[0]);
@@ -2307,6 +2565,8 @@
                 completedRolling: {},
                 playerStates: playerStates,
                 nextRoundReady: {},
+                spectatorView: null,
+                lastAction: null,
                 finishLocked: false,
                 gameOver: false,
                 winner: null,
