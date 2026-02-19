@@ -1,0 +1,2615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Poker - Hold'em Style - Multiplayer</title>
+    <link rel="icon" href="../../assets/images/icons/ZoodsRoomFaviconTransparent.png">
+    <style>
+        :root {
+            --bg-dark: #1a1a1a;
+            --table-color: #35654d;
+            --accent-gold: #ffbd2e;
+            --accent-blue: #3498db;
+            --accent-red: #e74c3c;
+            --accent-green: #27ae60;
+            --text-main: #ffffff;
+            --text-muted: #aab7b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #2d1e1e 100%);
+            color: var(--text-main);
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(0,0,0,0.8);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-gold);
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background: var(--accent-gold); color: #000; }
+        .btn-primary:hover { background: #ffca57; transform: translateY(-2px); }
+        .btn-secondary { background: var(--accent-blue); color: #fff; }
+        .btn-secondary:hover { background: #5dade2; }
+        .btn-danger { background: var(--accent-red); color: #fff; }
+        .btn-success { background: var(--accent-green); color: #fff; }
+        .btn:disabled { background: #555; cursor: not-allowed; opacity: 0.5; }
+
+        main {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .game-area {
+            flex: 1;
+            background: radial-gradient(circle, var(--table-color) 0%, #1e3b2d 100%);
+            border: 20px solid #3e2723;
+            border-radius: 20px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .section h3 {
+            color: var(--accent-gold);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .player-card {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+
+        .player-card.active-turn {
+            border-color: var(--accent-gold);
+            background: rgba(255,189,46,0.1);
+        }
+
+        .player-card.folded {
+            opacity: 0.5;
+            border-color: var(--accent-red);
+        }
+
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .player-avatar.bot { background: #27ae60; }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .player-score {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .player-chips {
+            font-size: 0.75rem;
+            color: var(--accent-gold);
+        }
+
+        .blind-badge {
+            font-size: 0.65rem;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: var(--accent-gold);
+            color: #000;
+            letter-spacing: 0.5px;
+        }
+
+        .blind-badge.bb {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .turn-indicator {
+            color: var(--accent-gold);
+            font-size: 1.5rem;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dice-container {
+            display: flex;
+            gap: 15px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .die {
+            width: 70px;
+            height: 70px;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: default;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .die.hidden {
+            background: #333;
+            color: #666;
+        }
+
+        .game-status {
+            font-size: 1.3rem;
+            margin: 20px 0;
+            color: var(--accent-gold);
+            text-align: center;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            font-size: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .info-value {
+            color: var(--accent-gold);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .community-dice-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .community-dice-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .hand-result {
+            margin-top: 20px;
+            padding: 15px 30px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            color: var(--accent-gold);
+            text-align: center;
+            min-height: 50px;
+        }
+
+        #toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 2px solid var(--accent-gold);
+            font-size: 1rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #toast.show { opacity: 1; }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: #1a1a1a;
+            border: 3px solid var(--accent-gold);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 2rem;
+            color: var(--accent-gold);
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .score-row-item {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+
+        .score-row-item.winner {
+            border-color: var(--accent-gold);
+            background: rgba(255,189,46,0.1);
+        }
+
+        .winner-badge {
+            background: var(--accent-gold);
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            justify-content: center;
+        }
+
+        .lobby-code {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            color: var(--accent-gold);
+        }
+
+        .betting-section {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid var(--accent-gold);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .betting-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .betting-controls button {
+            padding: 8px 12px;
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .betting-controls button:hover {
+            background: #5dade2;
+            transform: translateY(-2px);
+        }
+
+        .bet-display {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .bet-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .bet-label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+
+        .bet-value {
+            color: var(--accent-gold);
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+
+        .pot-display {
+            background: rgba(255,189,46,0.2);
+            border: 2px solid var(--accent-gold);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .pot-value {
+            font-size: 2rem;
+            color: var(--accent-gold);
+            font-weight: bold;
+        }
+
+        .ready-section {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid var(--accent-gold);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .waiting-on-players {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            min-height: 24px;
+        }
+
+        .ready-badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+
+        .spectating-banner {
+            background: rgba(52, 152, 219, 0.18);
+            border: 2px solid var(--accent-blue);
+            border-radius: 10px;
+            padding: 12px 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #d6ebff;
+            font-weight: bold;
+            width: 100%;
+            max-width: 640px;
+        }
+
+        .spectating-banner .subtext {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        .round-info {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--accent-gold);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .round-info-item {
+            color: var(--text-muted);
+            margin: 3px 0;
+        }
+
+        .round-info-item .value {
+            color: var(--accent-gold);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">🎲 Dice Poker - Hold'em Style - Multiplayer</div>
+        <div class="header-right">
+            <div class="lobby-code">Lobby: <span id="lobby-code-display">...</span></div>
+            <button class="btn btn-danger" onclick="returnToLobby()">Leave Game</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="game-area">
+            <div class="game-status" id="game-status">Waiting for game to start...</div>
+            <div id="spectating-banner" class="spectating-banner" style="display: none;"></div>
+            
+            <!-- Round Info -->
+            <div id="round-info" class="round-info" style="display: none;">
+                <div class="round-info-item">Round <span class="value" id="round-number">1</span> | Phase: <span class="value" id="phase-display">-</span></div>
+                <div class="round-info-item">Dealer <span class="value" id="dealer-display">-</span> | Small Blind <span class="value" id="sb-display">-</span> | Big Blind <span class="value" id="bb-display">-</span></div>
+            </div>
+
+            <!-- Ready-Up Section -->
+            <div id="ready-section" class="ready-section" style="display: none;">
+                <div style="font-size: 1.1rem; margin-bottom: 15px; font-weight: bold; color: var(--accent-gold);">Ready to Play?</div>
+                <div class="waiting-on-players" id="waiting-on-display"></div>
+                <button id="ready-btn" class="btn btn-primary" onclick="markPlayerReady()" style="margin-top: 10px; padding: 12px 30px; font-size: 1.1rem;">
+                    ✓ Ready
+                </button>
+            </div>
+
+            <!-- Pot Display -->
+            <div id="pot-display" class="pot-display" style="display: none;">
+                <div class="bet-label">POT</div>
+                <div class="pot-value" id="pot-value">0</div>
+            </div>
+
+            <!-- Community Dice Section -->
+            <div id="community-section" class="community-dice-section" style="display: none;">
+                <div class="community-dice-label">Community Dice</div>
+                <div class="dice-container" id="community-dice-container">
+                    <!-- Community dice will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Personal Dice Section -->
+            <div id="personal-section" class="community-dice-section" style="display: none;">
+                <div class="community-dice-label">Your Personal Dice (Hidden from Others)</div>
+                <div class="dice-container" id="personal-dice-container">
+                    <!-- Personal dice will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Betting Section -->
+            <div id="betting-section" class="betting-section" style="display: none;">
+                <div class="bet-display">
+                    <div class="bet-item">
+                        <div class="bet-label">Your Chips</div>
+                        <div class="bet-value" id="player-chips">1000</div>
+                    </div>
+                    <div class="bet-item">
+                        <div class="bet-label">Bet</div>
+                        <div class="bet-value" id="bet-display">0</div>
+                    </div>
+                    <div class="bet-item">
+                        <div class="bet-label">Contributed</div>
+                        <div class="bet-value" id="round-bet-display">0</div>
+                    </div>
+                </div>
+                <div id="betting-controls" class="betting-controls" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap;">
+                    <button onclick="adjustBet(10)">+10</button>
+                    <button onclick="adjustBet(50)">+50</button>
+                    <button onclick="adjustBet(100)">+100</button>
+                    <button onclick="adjustBet(-10)">-10</button>
+                    <button onclick="adjustBet(-50)">-50</button>
+                    <button onclick="resetBet()">Reset</button>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button id="primary-action-btn" class="btn btn-secondary" onclick="handlePrimaryBetAction()" style="width: 140px;">
+                        📈 Raise
+                    </button>
+                    <button id="all-in-btn" class="btn btn-success" onclick="goAllIn()" style="width: 120px;">
+                        🔥 All In
+                    </button>
+                    <button id="fold-btn" class="btn btn-danger" onclick="fold()" style="width: 120px;">
+                        ❌ Fold
+                    </button>
+                </div>
+            </div>
+
+            <div class="hand-result" id="hand-result">Waiting to start...</div>
+
+            <div class="game-info">
+                <div class="info-item">
+                    <div class="info-label">Active Players</div>
+                    <div class="info-value" id="active-players">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="section">
+                <h3>Players</h3>
+                <div id="player-list-container">
+                    <!-- Players will be rendered here -->
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Game Rules</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;">
+                    <strong>Hand Rankings (High to Low):</strong><br>
+                    Five of a Kind<br>
+                    Four of a Kind<br>
+                    Straight (Big 2-6 > Little 1-5)<br>
+                    Full House<br>
+                    Three of a Kind<br>
+                    Two Pair<br>
+                    One Pair<br>
+                    High Card<br><br>
+                    <strong>Ranking Tiebreaker:</strong><br>
+                    Numerical value (6 > 5 > ... > 1)<br><br>
+                    <strong>How to Play:</strong><br>
+                    1. Each player rolls 2 personal dice<br>
+                    2. Pre-flop betting round<br>
+                    3. 3 community dice revealed<br>
+                    4. Betting round<br>
+                    5. 1 more community die<br>
+                    6. Betting round<br>
+                    7. Final community die<br>
+                    8. Final betting + Showdown<br>
+                    9. Best 5-card hand wins!
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scoreboard Modal -->
+    <div id="scoreboardModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">🏆 Hand Over!</div>
+            <div id="scoreboardResults"></div>
+            <div id="scoreboard-ready-status" style="margin: 12px 0; font-weight: bold; color: var(--accent-gold);"></div>
+            <div class="modal-actions">
+                <button id="scoreboard-ready-btn" class="btn btn-primary" onclick="markNextRoundReady()">Ready for Next Hand</button>
+                <button class="btn btn-secondary" onclick="returnToLobbyFromScoreboard()">Return to Lobby</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+    <!-- Firebase Config -->
+    <script src="../../js/firebaseConfig.js"></script>
+
+    <script>
+        // ==============================
+        // FIREBASE & LOBBY STATE
+        // ==============================
+        let lobbyId = null;
+        let lobbyRef = null;
+        let lobbyPlayers = {};
+        let currentMatchState = null;
+        let scoreboardShown = false;
+        let gameStarted = false;
+        let hasFolded = false;
+        const GAME_TYPE = 'dicepokerholdem';
+        
+        // ==============================
+        // BETTING & CHIPS
+        // ==============================
+        const STARTING_CHIPS = 1000;
+        const SMALL_BLIND = 50;
+        const BIG_BLIND = 100;
+        let playerChips = {};
+        let currentBet = 0;  // Max bet in current betting round
+        let currentPot = 0;
+        let playerBetThisRound = {};  // How much each player has bet in this betting round
+        let playerContributionThisHand = {}; // Total chips each player has put in this hand
+        let sidePots = []; // Array of {amount, eligible: [playerUUIDs]}
+        let allInPlayers = new Set();
+
+        // ==============================
+        // GAME STATE
+        // ==============================
+        let personalDice = {};  // {playerUUID: [die1, die2]}
+        let communityDice = []; // [die1, die2, die3, die4, die5]
+        let roundPhase = 'waiting'; // waiting, preflop-betting, flop-reveal, flop-betting, turn-reveal, turn-betting, river-reveal, river-betting, showdown, complete
+        let dealerPosition = 0;
+        let smallBlindPosition = 1;
+        let bigBlindPosition = 2;
+        let currentBettorPosition = 0;
+        let roundNumber = 0;
+        let playerOrder = [];  // Array of playerUUIDs in turn order
+        let gameInitialized = false;
+        let bettingStarted = false;
+        let playerTurnComplete = false;
+        let isReadyCheckInProgress = false;
+        let isCurrentPlayerMarkedReady = false;  // Local flag to prevent double-clicking
+        let isPreFlopRollingInProgress = false;  // Guard to prevent duplicate startPreFlopRolling calls
+        let spectatorView = null;
+        let lastAppliedSpectatorUpdatedAt = 0;
+        let lastSyncedStatus = null;
+        let botActionTimeout = null;
+        let botActionKey = null;
+        let pendingBetAmount = 0;
+        let playerActionCount = {}; // Track how many times each player has acted this round
+        let playerHasActedThisRound = {}; // Track if player has acted at least once
+        let handStartChips = {}; // Snapshot of chips at hand start for net gain/loss
+
+        const BOT_BET_DELAY_MS = 1700;
+        const BOT_TURN_START_DELAY_MS = 900;
+        const REVEAL_DELAY_MS = 700;
+
+        // ==============================
+        // INITIALIZATION
+        // ==============================
+        window.addEventListener('load', async () => {
+            const initialized = await ensureFirebaseInitialized();
+            if (!playerUUID) {
+                console.error('Failed to initialize playerUUID');
+                showToast('Error initializing player');
+                return;
+            }
+            
+            console.log('playerUUID ready:', playerUUID);
+            const hasLobby = await joinLobbyFromURL();
+            if (!hasLobby) return;
+            setupRealtimeSync();
+        });
+
+        async function joinLobbyFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            lobbyId = params.get('lobbyId');
+            
+            if (!lobbyId) {
+                console.warn('No lobby ID found in URL. Redirecting to lobby page...');
+                window.location.href = '../../lobby.html';
+                return false;
+            }
+            
+            try {
+                const success = await joinLobby(lobbyId);
+                if (success) {
+                    console.log('Successfully joined lobby:', lobbyId);
+                    document.getElementById('lobby-code-display').textContent = lobbyId;
+                    return true;
+                } else {
+                    showToast('Failed to join lobby');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error joining lobby:', error);
+                showToast('Error joining lobby: ' + error.message);
+                return false;
+            }
+        }
+
+        function setupRealtimeSync() {
+            if (!lobbyId) {
+                console.error('No lobbyId set, cannot setup sync');
+                return;
+            }
+
+            console.log('Setting up real-time sync for lobby:', lobbyId);
+            
+            // Attach lobby listener
+            lobbyRef = onLobbyUpdate((data) => {
+                if (!data) {
+                    console.warn('No data received from onLobbyUpdate');
+                    return;
+                }
+
+                console.log('Lobby data updated:', data);
+                
+                // Update players list
+                lobbyPlayers = data.players || {};
+                
+                // Update game state
+                const gameState = data.gameStates && data.gameStates[GAME_TYPE];
+                if (gameState) {
+                    currentMatchState = gameState;
+                    
+                    if (gameState.personalDice) personalDice = gameState.personalDice;
+                    if (gameState.communityDice) communityDice = gameState.communityDice;
+                    if (gameState.phase !== undefined) roundPhase = gameState.phase;
+                    if (gameState.dealerPosition !== undefined) dealerPosition = gameState.dealerPosition;
+                    if (gameState.smallBlindPosition !== undefined) smallBlindPosition = gameState.smallBlindPosition;
+                    if (gameState.bigBlindPosition !== undefined) bigBlindPosition = gameState.bigBlindPosition;
+                    if (gameState.currentBettorPosition !== undefined) currentBettorPosition = gameState.currentBettorPosition;
+                    if (gameState.roundNumber !== undefined) roundNumber = gameState.roundNumber;
+                    if (gameState.playerHasActedThisRound) playerHasActedThisRound = gameState.playerHasActedThisRound;
+                    // Sync playerOrder from Firebase - always try to update if it exists
+                    if (gameState.playerOrder) {
+                        if (gameState.playerOrder.length > 0) {
+                            playerOrder = gameState.playerOrder;
+                            console.log('Synced playerOrder from Firebase:', playerOrder.length, 'players', playerOrder.map(p => p.slice(0, 8)));
+                        } else if (playerOrder.length > 0) {
+                            // Firebase has empty array but we have players - keep local copy
+                            console.warn('Firebase playerOrder is empty but we have local playerOrder with', playerOrder.length, 'players. Keeping local copy.');
+                        } else {
+                            // Both are empty - that's ok, game might be initializing
+                            console.log('playerOrder empty from Firebase');
+                        }
+                    }
+                    if (gameState.currentBet !== undefined) currentBet = gameState.currentBet;
+                    if (gameState.currentPot !== undefined) currentPot = gameState.currentPot;
+                    if (gameState.playerBetThisRound) playerBetThisRound = gameState.playerBetThisRound;
+                    if (gameState.playerContributionThisHand) playerContributionThisHand = gameState.playerContributionThisHand;
+                    if (gameState.playerChips) playerChips = gameState.playerChips;
+                    if (gameState.handStartChips) handStartChips = gameState.handStartChips;
+                    if (gameState.sidePots) sidePots = gameState.sidePots;
+                    if (gameState.allInPlayers) allInPlayers = new Set(gameState.allInPlayers);
+                    if (gameState.playerStates) {
+                        Object.keys(gameState.playerStates).forEach(pid => {
+                            const pstate = gameState.playerStates[pid];
+                            if (pstate.folded !== undefined && pstate.folded && pid === playerUUID) {
+                                hasFolded = true;
+                            }
+                        });
+                    }
+                }
+                
+                console.log('Game state:', currentMatchState);
+                
+                // Update game state machine based on phase
+                if (roundPhase === 'waiting') {
+                    handleWaitingState();
+                } else if (roundPhase && (roundPhase.includes('betting') || roundPhase.includes('reveal'))) {
+                    handlePlayingState();
+                } else if (roundPhase === 'showdown' || roundPhase === 'complete') {
+                    handleCompleteState();
+                }
+                
+                renderUI();
+            });
+            
+            // Initial check
+            checkAndStartGame();
+        }
+
+        function handleWaitingState() {
+            try {
+                const readySection = document.getElementById('ready-section');
+                const bettingSection = document.getElementById('betting-section');
+                const communitySection = document.getElementById('community-section');
+                const personalSection = document.getElementById('personal-section');
+                const potDisplay = document.getElementById('pot-display');
+                const roundInfo = document.getElementById('round-info');
+                
+                if (readySection) readySection.style.display = 'block';
+                if (bettingSection) bettingSection.style.display = 'none';
+                if (communitySection) communitySection.style.display = 'none';
+                if (personalSection) personalSection.style.display = 'none';
+                if (potDisplay) potDisplay.style.display = 'none';
+                if (roundInfo) roundInfo.style.display = 'none';
+                
+                // Ensure playerOrder is synced from currentMatchState
+                if ((!playerOrder || playerOrder.length === 0) && currentMatchState && currentMatchState.playerOrder && currentMatchState.playerOrder.length > 0) {
+                    playerOrder = currentMatchState.playerOrder;
+                    console.log('handleWaitingState: Synced playerOrder from currentMatchState:', playerOrder.length, 'players');
+                }
+                
+                // Check if all players are ready (host only)
+                if (isHostClient()) {
+                    setTimeout(() => {
+                        checkAllPlayersReady().catch(err => console.error('Error in checkAllPlayersReady:', err));
+                    }, 100);
+                }
+            } catch (error) {
+                console.error('Error in handleWaitingState:', error);
+            }
+        }
+
+        function handlePlayingState() {
+            try {
+                const readySection = document.getElementById('ready-section');
+                const bettingSection = document.getElementById('betting-section');
+                const communitySection = document.getElementById('community-section');
+                const personalSection = document.getElementById('personal-section');
+                const potDisplay = document.getElementById('pot-display');
+                const roundInfo = document.getElementById('round-info');
+                
+                if (readySection) readySection.style.display = 'none';
+                if (bettingSection) bettingSection.style.display = 'block';
+                if (communitySection) communitySection.style.display = 'block';
+                if (personalSection) personalSection.style.display = 'block';
+                if (potDisplay) potDisplay.style.display = 'block';
+                if (roundInfo) roundInfo.style.display = 'block';
+            } catch (error) {
+                console.error('Error in handlePlayingState:', error);
+            }
+        }
+
+        function handleCompleteState() {
+            try {
+                const bettingSection = document.getElementById('betting-section');
+                if (bettingSection) bettingSection.style.display = 'none';
+                showScoreboard();
+            } catch (error) {
+                console.error('Error in handleCompleteState:', error);
+            }
+        }
+
+        function renderUI() {
+            try {
+                renderPlayerList();
+            } catch (error) {
+                console.error('Error in renderPlayerList:', error);
+            }
+            
+            try {
+                renderCommunityDice();
+            } catch (error) {
+                console.error('Error in renderCommunityDice:', error);
+            }
+            
+            try {
+                renderPersonalDice();
+            } catch (error) {
+                console.error('Error in renderPersonalDice:', error);
+            }
+            
+            try {
+                updateBettingUI();
+            } catch (error) {
+                console.error('Error in updateBettingUI:', error);
+            }
+            
+            try {
+                updateGameStatus();
+            } catch (error) {
+                console.error('Error in updateGameStatus:', error);
+            }
+            
+            try {
+                updateRoundInfo();
+            } catch (error) {
+                console.error('Error in updateRoundInfo:', error);
+            }
+            
+            try {
+                updateReadySection();
+            } catch (error) {
+                console.error('Error in updateReadySection:', error);
+            }
+            
+            try {
+                checkAndStartGame();
+            } catch (error) {
+                console.error('Error in checkAndStartGame:', error);
+            }
+            
+            try {
+                if (roundPhase && roundPhase.includes('betting') && isHostClient()) {
+                    handleTurnAutoAdvance();
+                }
+            } catch (error) {
+                console.error('Error in handleTurnAutoAdvance:', error);
+            }
+
+            // Handle phase transitions
+            try {
+                if (roundPhase !== 'waiting' && isHostClient()) {
+                    handlePhaseTransitions();
+                }
+            } catch (error) {
+                console.error('Error in handlePhaseTransitions:', error);
+            }
+            
+            // Handle bot turns
+            try {
+                if (roundPhase !== 'waiting') {
+                    handleBotTurns();
+                }
+            } catch (error) {
+                console.error('Error in handleBotTurns:', error);
+            }
+        }
+
+        function handlePhaseTransitions() {
+            // Auto-advance phases if all betting is complete
+            if (roundPhase === 'preflop-betting' && isBettingRoundComplete()) {
+                transitionToFlop();
+            } else if (roundPhase === 'flop-betting' && isBettingRoundComplete()) {
+                transitionToTurn();
+            } else if (roundPhase === 'turn-betting' && isBettingRoundComplete()) {
+                transitionToRiver();
+            } else if (roundPhase === 'river-betting' && isBettingRoundComplete()) {
+                transitionToShowdown();
+            }
+        }
+
+        function handleTurnAutoAdvance() {
+            if (!isHostClient()) return;
+            if (!roundPhase || !roundPhase.includes('betting')) return;
+            if (!currentMatchState || !currentMatchState.playerStates || !playerOrder || playerOrder.length === 0) return;
+
+            const currentPlayerId = playerOrder[currentBettorPosition];
+            if (!currentPlayerId) return;
+
+            const playerState = currentMatchState.playerStates?.[currentPlayerId] || {};
+            if (playerState.folded || allInPlayers.has(currentPlayerId)) {
+                advanceToNextBettor();
+                return;
+            }
+
+            const roundBet = playerBetThisRound[currentPlayerId] || 0;
+            const hasActed = !!playerHasActedThisRound?.[currentPlayerId];
+            const isMatched = currentBet === 0 ? hasActed : roundBet >= currentBet && hasActed;
+
+            if (isMatched) {
+                advanceToNextBettor();
+            }
+        }
+
+        function isBettingRoundComplete() {
+            // All non-folded, non-all-in players have matched current bet
+            if (!currentMatchState || !currentMatchState.playerStates || !playerOrder || playerOrder.length === 0) {
+                return false;
+            }
+
+            const activePlayers = playerOrder.filter(pid => {
+                const playerState = currentMatchState.playerStates?.[pid] || {};
+                return !playerState.folded && !allInPlayers.has(pid);
+            });
+            
+            if (activePlayers.length === 0) return false;
+
+            if (currentBet === 0) {
+                return activePlayers.every(pid => playerHasActedThisRound?.[pid]);
+            }
+            
+            return activePlayers.every(pid => {
+                const bet = playerBetThisRound[pid] || 0;
+                const matchedBet = bet === currentBet || allInPlayers.has(pid);
+                const hasActed = !!playerHasActedThisRound?.[pid] || allInPlayers.has(pid);
+                return matchedBet && hasActed;
+            });
+        }
+
+        async function transitionToFlop() {
+            const flop = [rollDie(), rollDie(), rollDie()];
+            communityDice = flop;
+            
+            // Reset betting for new phase
+            playerBetThisRound = {};
+            playerHasActedThisRound = {}; // Reset action tracking
+            currentBet = 0;
+            currentBettorPosition = smallBlindPosition;
+            
+            await updateGameSpecificState(GAME_TYPE, {
+                phase: 'flop-reveal',
+                communityDice: flop,
+                playerBetThisRound: {},
+                playerHasActedThisRound: {},
+                currentBet: 0,
+                currentBettorPosition
+            });
+
+            setTimeout(() => {
+                if (isHostClient()) {
+                    updateGameSpecificState(GAME_TYPE, { phase: 'flop-betting' });
+                }
+            }, REVEAL_DELAY_MS);
+        }
+
+        async function transitionToTurn() {
+            const turn = rollDie();
+            communityDice.push(turn);
+            
+            // Reset betting for new phase
+            playerBetThisRound = {};
+            playerHasActedThisRound = {}; // Reset action tracking
+            currentBet = 0;
+            currentBettorPosition = smallBlindPosition;
+            
+            await updateGameSpecificState(GAME_TYPE, {
+                phase: 'turn-reveal',
+                communityDice,
+                playerBetThisRound: {},
+                playerHasActedThisRound: {},
+                currentBet: 0,
+                currentBettorPosition
+            });
+
+            setTimeout(() => {
+                if (isHostClient()) {
+                    updateGameSpecificState(GAME_TYPE, { phase: 'turn-betting' });
+                }
+            }, REVEAL_DELAY_MS);
+        }
+
+        async function transitionToRiver() {
+            const river = rollDie();
+            communityDice.push(river);
+            
+            // Reset betting for new phase
+            playerBetThisRound = {};
+            playerHasActedThisRound = {}; // Reset action tracking
+            currentBet = 0;
+            currentBettorPosition = smallBlindPosition;
+            
+            await updateGameSpecificState(GAME_TYPE, {
+                phase: 'river-reveal',
+                communityDice,
+                playerBetThisRound: {},
+                playerHasActedThisRound: {},
+                currentBet: 0,
+                currentBettorPosition
+            });
+
+            setTimeout(() => {
+                if (isHostClient()) {
+                    updateGameSpecificState(GAME_TYPE, { phase: 'river-betting' });
+                }
+            }, REVEAL_DELAY_MS);
+        }
+
+        async function transitionToShowdown() {
+            await updateGameSpecificState(GAME_TYPE, {
+                phase: 'showdown'
+            });
+            
+            // Host evaluates hands
+            setTimeout(() => evaluateShowdown(), 1000);
+        }
+
+        // ==============================
+        // BOT AI LOGIC
+        // ==============================
+        function handleBotTurns() {
+            const currentPlayer = playerOrder[currentBettorPosition];
+            const player = lobbyPlayers[currentPlayer];
+            
+            if (player && player.isBot && !hasFolded) {
+                if (botActionTimeout) clearTimeout(botActionTimeout);
+                
+                botActionTimeout = setTimeout(() => {
+                    executeBotAction(currentPlayer);
+                }, BOT_BET_DELAY_MS);
+            }
+        }
+
+        async function executeBotAction(botUUID) {
+            if (!isHostClient()) return;
+            
+            const pDice = personalDice[botUUID] || [0, 0];
+            const handStrength = evaluateHandStrength(pDice);
+            const chips = playerChips[botUUID] || 0;
+            const amountToCall = Math.max(0, currentBet - (playerBetThisRound[botUUID] || 0));
+            
+            console.log('Bot', lobbyPlayers[botUUID].username, 'acting. Hand strength:', handStrength, 'Chips:', chips, 'To call:', amountToCall);
+            
+            // Simple bot strategy
+            if (handStrength >= 0.7) { // Strong hand
+                if (currentBet === 0) {
+                    // Raise
+                    pendingBetAmount = amountToCall + 100;
+                    await raiseBet();
+                } else if (amountToCall <= chips * 0.2) {
+                    // Call
+                    await callBet();
+                } else {
+                    // All-in
+                    await goAllIn();
+                }
+            } else if (handStrength >= 0.4) { // Medium hand
+                if (amountToCall <= chips * 0.3) {
+                    await callBet();
+                } else {
+                    await fold();
+                }
+            } else { // Weak hand
+                if (amountToCall === 0 && currentBet === 0) {
+                    await checkAction();
+                } else {
+                    await fold();
+                }
+            }
+        }
+
+        function evaluateHandStrength(personalDice) {
+            // Simple heuristic: pairs and high cards are strong
+            const [d1, d2] = personalDice;
+            
+            if (d1 === d2) return 0.7; // Pair
+            if ((d1 >= 5 && d2 >= 5) || (d1 === 6 || d2 === 6)) return 0.6; // High cards
+            if (d1 + d2 >= 10) return 0.5; // Nice combo
+            if (d1 + d2 >= 7) return 0.3; // Moderate
+            return 0.1; // Weak
+        }
+
+        function renderPlayerList() {
+            const container = document.getElementById('player-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            Object.keys(lobbyPlayers).forEach(uuid => {
+                const player = lobbyPlayers[uuid];
+                if (!player) return;
+                
+                const displayName = player.username || player.name || `Player-${uuid.slice(0, 4)}`;
+                const chips = playerChips[uuid] || STARTING_CHIPS;
+                const isActive = currentBettorPosition >= 0 && playerOrder[currentBettorPosition] === uuid;
+                const isFolded = currentMatchState?.playerStates?.[uuid]?.folded;
+                const sbPlayerId = playerOrder?.[smallBlindPosition];
+                const bbPlayerId = playerOrder?.[bigBlindPosition];
+                const blindBadge = uuid === sbPlayerId
+                    ? '<span class="blind-badge sb">SB</span>'
+                    : (uuid === bbPlayerId ? '<span class="blind-badge bb">BB</span>' : '');
+                
+                const card = document.createElement('div');
+                card.className = `player-card ${isActive ? 'active-turn' : ''} ${isFolded ? 'folded' : ''}`;
+                const avatarChar = player.isBot ? '🤖' : (displayName.length > 0 ? displayName.charAt(0).toUpperCase() : '?');
+                card.innerHTML = `
+                    <div class="player-avatar ${player.isBot ? 'bot' : ''}">
+                        ${avatarChar}
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name">${displayName} ${player.isBot ? '(Bot)' : ''} ${blindBadge}</div>
+                        <div class="player-chips">💰 ${chips}</div>
+                        ${isFolded ? '<div class="player-score" style="color: var(--accent-red);">Folded</div>' : ''}
+                    </div>
+                    ${isActive ? '<div class="turn-indicator">⏱️</div>' : ''}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderCommunityDice() {
+            const container = document.getElementById('community-dice-container');
+            container.innerHTML = '';
+            
+            // Show revealed community dice
+            const revealedCount = getCommunityDiceRevealedCount();
+            for (let i = 0; i < 5; i++) {
+                const die = document.createElement('div');
+                die.className = 'die';
+                if (i < revealedCount && communityDice[i]) {
+                    die.textContent = communityDice[i];
+                } else {
+                    die.className += ' hidden';
+                    die.textContent = '?';
+                }
+                container.appendChild(die);
+            }
+        }
+
+        function getCommunityDiceRevealedCount() {
+            switch(roundPhase) {
+                case 'preflop-betting':
+                    return 0;
+                case 'flop-reveal':
+                case 'flop-betting':
+                    return 3;
+                case 'turn-reveal':
+                case 'turn-betting':
+                    return 4;
+                case 'river-reveal':
+                case 'river-betting':
+                case 'showdown':
+                case 'complete':
+                    return 5;
+                default:
+                    return 0;
+            }
+        }
+
+        function renderPersonalDice() {
+            const container = document.getElementById('personal-dice-container');
+            container.innerHTML = '';
+            
+            const myDice = personalDice[playerUUID] || [null, null];
+            for (let i = 0; i < 2; i++) {
+                const die = document.createElement('div');
+                die.className = 'die';
+                die.textContent = myDice[i] || '?';
+                container.appendChild(die);
+            }
+        }
+
+        function updateBettingUI() {
+            try {
+                const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
+                const roundBet = playerBetThisRound[playerUUID] || 0;
+                const amountToCall = Math.max(0, currentBet - roundBet);
+                
+                const playerChipsEl = document.getElementById('player-chips');
+                const betDisplayEl = document.getElementById('bet-display');
+                const roundBetDisplayEl = document.getElementById('round-bet-display');
+                const potValueEl = document.getElementById('pot-value');
+                
+                if (playerChipsEl) playerChipsEl.textContent = playerChipsCount;
+                const contributedThisHand = playerContributionThisHand[playerUUID] || 0;
+                if (roundBetDisplayEl) roundBetDisplayEl.textContent = contributedThisHand;
+                if (potValueEl) potValueEl.textContent = currentPot;
+                
+                const maxRaiseTo = playerChipsCount + roundBet;
+                if (pendingBetAmount > maxRaiseTo) {
+                    pendingBetAmount = maxRaiseTo;
+                }
+
+                const pendingTarget = pendingBetAmount > currentBet ? pendingBetAmount : currentBet;
+                if (betDisplayEl) betDisplayEl.textContent = pendingTarget;
+                
+                const isMyTurn = playerOrder[currentBettorPosition] === playerUUID;
+                const isFolded = hasFolded;
+                const isAllIn = allInPlayers.has(playerUUID);
+                
+                const primaryActionBtn = document.getElementById('primary-action-btn');
+                const foldBtn = document.getElementById('fold-btn');
+                const allInBtn = document.getElementById('all-in-btn');
+                
+                if (primaryActionBtn) {
+                    const shouldCheck = amountToCall === 0 && pendingBetAmount <= currentBet;
+                    const shouldRaise = pendingBetAmount > currentBet;
+                    let label = 'Call';
+                    let icon = '💰';
+
+                    if (shouldCheck) {
+                        label = 'Check';
+                        icon = '✓';
+                    } else if (shouldRaise) {
+                        label = 'Raise';
+                        icon = '📈';
+                    }
+
+                    primaryActionBtn.textContent = `${icon} ${label}`;
+                    primaryActionBtn.disabled = !isMyTurn || isFolded || isAllIn || playerChipsCount === 0;
+                }
+                if (foldBtn) foldBtn.disabled = !isMyTurn || isFolded || isAllIn;
+                if (allInBtn) allInBtn.disabled = !isMyTurn || isFolded || isAllIn || playerChipsCount === 0;
+            } catch (error) {
+                console.error('Error in updateBettingUI:', error);
+            }
+        }
+
+        function updateGameStatus() {
+            try {
+                const phaseLabels = {
+                    'preflop-betting': 'Pre-Flop Betting',
+                    'flop-reveal': 'Flop Revealed',
+                    'flop-betting': 'Flop Betting',
+                    'turn-reveal': 'Turn Revealed',
+                    'turn-betting': 'Turn Betting',
+                    'river-reveal': 'River Revealed',
+                    'river-betting': 'Final Betting',
+                    'showdown': 'Showdown',
+                    'complete': 'Hand Complete'
+                };
+                
+                const gameStatusEl = document.getElementById('game-status');
+                if (!gameStatusEl) return;
+                
+                if (roundPhase === 'waiting') {
+                    gameStatusEl.textContent = 'Waiting for players to ready up...';
+                } else {
+                    const phase = phaseLabels[roundPhase] || roundPhase;
+                    gameStatusEl.textContent = phase;
+                }
+            } catch (error) {
+                console.error('Error in updateGameStatus:', error);
+            }
+        }
+
+        function updateRoundInfo() {
+            try {
+                if (roundPhase !== 'waiting') {
+                    const dealerName = getDealerName();
+                    const smallBlindName = getPositionName(smallBlindPosition);
+                    const bigBlindName = getPositionName(bigBlindPosition);
+
+                    const roundNumberEl = document.getElementById('round-number');
+                    const phaseDisplayEl = document.getElementById('phase-display');
+                    const dealerDisplayEl = document.getElementById('dealer-display');
+                    const sbDisplayEl = document.getElementById('sb-display');
+                    const bbDisplayEl = document.getElementById('bb-display');
+                    const activePlayersEl = document.getElementById('active-players');
+                    
+                    if (roundNumberEl) roundNumberEl.textContent = roundNumber + 1;
+                    if (phaseDisplayEl) phaseDisplayEl.textContent = roundPhase;
+                    if (dealerDisplayEl) dealerDisplayEl.textContent = dealerName;
+                    if (sbDisplayEl) sbDisplayEl.textContent = smallBlindName;
+                    if (bbDisplayEl) bbDisplayEl.textContent = bigBlindName;
+
+                    const activePlayers = Object.keys(lobbyPlayers).filter(uuid => !hasFolded || uuid !== playerUUID).length;
+                    if (activePlayersEl) activePlayersEl.textContent = activePlayers;
+                }
+            } catch (error) {
+                console.error('Error in updateRoundInfo:', error);
+            }
+        }
+
+        function getDealerName() {
+            if (dealerPosition < playerOrder.length) {
+                const uuid = playerOrder[dealerPosition];
+                return getDisplayName(uuid);
+            }
+            return '-';
+        }
+
+        function getPositionName(position) {
+            if (position < playerOrder.length) {
+                const uuid = playerOrder[position];
+                return getDisplayName(uuid);
+            }
+            return '-';
+        }
+
+        function getDisplayName(playerId) {
+            const player = lobbyPlayers[playerId] || {};
+            const displayName = player.username || player.name;
+            if (displayName && String(displayName).trim().length > 0) {
+                return displayName;
+            }
+            if (!playerId) return 'Player';
+            return `Player-${playerId.slice(0, 4)}`;
+        }
+
+        function updateReadySection() {
+            try {
+                const readySection = document.getElementById('ready-section');
+                const waitingDisplay = document.getElementById('waiting-on-display');
+                const readyBtn = document.getElementById('ready-btn');
+                
+                console.log('updateReadySection - roundPhase:', roundPhase, 'playerStates:', currentMatchState?.playerStates, 'playerOrder:', playerOrder);
+                
+                if (roundPhase !== 'waiting') {
+                    console.log('Not in waiting phase, hiding ready section');
+                    if (readySection) readySection.style.display = 'none';
+                    return;
+                }
+                
+                // Validate that game state is properly initialized
+                if (!currentMatchState || !currentMatchState.playerStates || !playerOrder || playerOrder.length < 2) {
+                    console.log('Game not properly initialized yet. playerOrder:', playerOrder, 'playerStates:', currentMatchState?.playerStates);
+                    if (readySection) readySection.style.display = 'block';
+                    if (waitingDisplay) waitingDisplay.innerHTML = '<span style="color: var(--text-muted);">Initializing game...</span>';
+                    if (readyBtn) readyBtn.disabled = true;
+                    return;
+                }
+                
+                if (readySection) readySection.style.display = 'block';
+                
+                // Get list of human players who are not ready
+                const playerStates = currentMatchState?.playerStates || {};
+                const notReadyPlayers = [];
+                
+                Object.entries(lobbyPlayers).forEach(([playerId, player]) => {
+                    if (!player.isBot) {
+                        const playerState = playerStates[playerId] || {};
+                        console.log(`  Player ${playerId.slice(0, 8)}: ready=${playerState.ready}`);
+                        if (!playerState.ready) {
+                            notReadyPlayers.push(getDisplayName(playerId));
+                        }
+                    }
+                });
+                
+                console.log('Not ready players:', notReadyPlayers);
+                
+                // Update waiting display
+                if (notReadyPlayers.length === 0) {
+                    if (waitingDisplay) {
+                        waitingDisplay.innerHTML = '<span style="color: #27ae60; font-weight: bold;">All active players ready! Starting hand...</span>';
+                    }
+                    if (readyBtn) readyBtn.disabled = true;
+                } else {
+                    const isCurrentPlayerReady = isCurrentPlayerMarkedReady || (playerStates[playerUUID] || {}).ready;
+                    if (waitingDisplay) {
+                        waitingDisplay.innerHTML = `Waiting on: <strong>${notReadyPlayers.join(', ')}</strong>`;
+                    }
+                    if (readyBtn) readyBtn.disabled = isCurrentPlayerReady;
+                }
+
+                if (readyBtn) {
+                    readyBtn.textContent = '✓ Ready';
+                }
+            } catch (error) {
+                console.error('Error in updateReadySection:', error);
+            }
+        }
+
+        async function markPlayerReady() {
+            try {
+                if (isCurrentPlayerMarkedReady) {
+                    console.log('Already marked ready, ignoring double-click');
+                    return;
+                }
+                
+                const playerUUIDForUpdate = playerUUID;
+                console.log('Marking player ready:', playerUUIDForUpdate.slice(0, 8));
+                
+                // Update player ready status directly in Firebase at the specific path
+                const path = `lobbies/${lobbyId}/gameStates/${GAME_TYPE}/playerStates/${playerUUIDForUpdate}`;
+                console.log('Firebase path:', path);
+                
+                await db.ref(path).update({
+                    ready: true
+                });
+                
+                console.log('Successfully marked ready in Firebase');
+                isCurrentPlayerMarkedReady = true;
+                showToast('You are ready!');
+                
+                // Disable the button
+                const readyBtn = document.getElementById('ready-btn');
+                if (readyBtn) readyBtn.disabled = true;
+                
+                console.log('isHostClient:', isHostClient());
+                // Host checks if all are ready
+                if (isHostClient()) {
+                    console.log('We are host, scheduling checkAllPlayersReady in 500ms');
+                    setTimeout(() => checkAllPlayersReady().catch(err => console.error('Error:', err)), 500);
+                }
+            } catch (error) {
+                console.error('Error marking player ready:', error);
+                showToast('Error: ' + error.message);
+                isCurrentPlayerMarkedReady = false;  // Reset on error
+            }
+        }
+
+        function handlePrimaryBetAction() {
+            const roundBet = playerBetThisRound[playerUUID] || 0;
+            const amountToCall = Math.max(0, currentBet - roundBet);
+
+            if (amountToCall === 0 && pendingBetAmount <= currentBet) {
+                checkAction();
+                return;
+            }
+
+            if (pendingBetAmount > currentBet) {
+                raiseBet();
+                return;
+            }
+
+            callBet();
+        }
+
+        async function callBet() {
+            try {
+                const amountToCall = Math.max(0, currentBet - (playerBetThisRound[playerUUID] || 0));
+                const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
+                
+                if (amountToCall > playerChipsCount) {
+                    showToast('Not enough chips to call! Go all-in instead.');
+                    return;
+                }
+
+                // Deduct from chips
+                const newChips = playerChipsCount - amountToCall;
+                const newRoundBet = (playerBetThisRound[playerUUID] || 0) + amountToCall;
+                const newContribution = (playerContributionThisHand[playerUUID] || 0) + amountToCall;
+
+                if (newChips === 0) {
+                    allInPlayers.add(playerUUID);
+                }
+
+                const newPlayerBets = { ...playerBetThisRound };
+                newPlayerBets[playerUUID] = newRoundBet;
+                
+                // Mark this player as having acted
+                playerHasActedThisRound[playerUUID] = true;
+                pendingBetAmount = 0; // Reset pending bet
+
+                const stateUpdate = {
+                    playerChips: { ...playerChips, [playerUUID]: newChips },
+                    playerBetThisRound: newPlayerBets,
+                    playerContributionThisHand: { ...playerContributionThisHand, [playerUUID]: newContribution },
+                    currentBet: currentBet,
+                    currentPot: currentPot + amountToCall,
+                    allInPlayers: Array.from(allInPlayers),
+                    playerHasActedThisRound: { ...playerHasActedThisRound }
+                };
+
+                await updateGameSpecificState(GAME_TYPE, stateUpdate);
+                
+                playerChips = { ...playerChips, [playerUUID]: newChips };
+                playerBetThisRound = newPlayerBets;
+                playerContributionThisHand = { ...playerContributionThisHand, [playerUUID]: newContribution };
+                currentPot = currentPot + amountToCall;
+                playerHasActedThisRound = { ...playerHasActedThisRound };
+                allInPlayers = new Set(allInPlayers);
+
+                // Advance to next bettor (host will handle this)
+                if (isHostClient()) {
+                    await advanceToNextBettor();
+                }
+            } catch (error) {
+                console.error('Error calling bet:', error);
+                showToast('Error: ' + error.message);
+            }
+        }
+
+        async function raiseBet() {
+            try {
+                const raiseAmount = pendingBetAmount;
+                if (raiseAmount <= currentBet) {
+                    showToast('Raise must be greater than current bet. Current: ' + currentBet + ', Pending: ' + raiseAmount);
+                    return;
+                }
+
+                const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
+                const amountToAdd = raiseAmount - (playerBetThisRound[playerUUID] || 0);
+
+                if (amountToAdd > playerChipsCount) {
+                    showToast('Not enough chips for that raise! Go all-in instead.');
+                    return;
+                }
+
+                const newChips = playerChipsCount - amountToAdd;
+                const newRoundBet = (playerBetThisRound[playerUUID] || 0) + amountToAdd;
+                const newContribution = (playerContributionThisHand[playerUUID] || 0) + amountToAdd;
+
+                if (newChips === 0) {
+                    allInPlayers.add(playerUUID);
+                }
+
+                const newPlayerBets = { ...playerBetThisRound };
+                newPlayerBets[playerUUID] = newRoundBet;
+                
+                // Mark this player as having acted
+                const newPlayerHasActed = { ...playerHasActedThisRound };
+                playerOrder.forEach(pid => {
+                    if (pid === playerUUID) return;
+                    const playerState = currentMatchState?.playerStates?.[pid] || {};
+                    if (!playerState.folded && !allInPlayers.has(pid)) {
+                        newPlayerHasActed[pid] = false;
+                    }
+                });
+                newPlayerHasActed[playerUUID] = true;
+                pendingBetAmount = 0; // Reset pending bet
+
+                const stateUpdate = {
+                    playerChips: { ...playerChips, [playerUUID]: newChips },
+                    playerBetThisRound: newPlayerBets,
+                    playerContributionThisHand: { ...playerContributionThisHand, [playerUUID]: newContribution },
+                    currentBet: raiseAmount,
+                    currentPot: currentPot + amountToAdd,
+                    allInPlayers: Array.from(allInPlayers),
+                    playerHasActedThisRound: newPlayerHasActed
+                };
+
+                await updateGameSpecificState(GAME_TYPE, stateUpdate);
+                
+                playerChips = { ...playerChips, [playerUUID]: newChips };
+                playerBetThisRound = newPlayerBets;
+                playerContributionThisHand = { ...playerContributionThisHand, [playerUUID]: newContribution };
+                currentBet = raiseAmount;
+                currentPot = currentPot + amountToAdd;
+                playerHasActedThisRound = { ...newPlayerHasActed };
+                allInPlayers = new Set(allInPlayers);
+
+                // Advance to next bettor (host will handle this)
+                if (isHostClient()) {
+                    await advanceToNextBettor();
+                }
+            } catch (error) {
+                console.error('Error raising bet:', error);
+                showToast('Error: ' + error.message);
+            }
+        }
+
+        async function fold() {
+            try {
+                // Mark this player as having acted
+                playerHasActedThisRound[playerUUID] = true;
+                pendingBetAmount = 0; // Reset pending bet
+
+                const path = `lobbies/${lobbyId}/gameStates/${GAME_TYPE}/playerStates/${playerUUID}`;
+                await db.ref(path).update({
+                    folded: true
+                });
+
+                await updateGameSpecificState(GAME_TYPE, {
+                    playerHasActedThisRound: { ...playerHasActedThisRound }
+                });
+                hasFolded = true;
+                
+                // Advance to next bettor (host will handle this)
+                if (isHostClient()) {
+                    await advanceToNextBettor();
+                }
+            } catch (error) {
+                console.error('Error folding:', error);
+                showToast('Error: ' + error.message);
+            }
+        }
+
+        async function goAllIn() {
+            try {
+                const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
+                const totalToCommit = (playerBetThisRound[playerUUID] || 0) + playerChipsCount;
+
+                const newPlayerBets = { ...playerBetThisRound };
+                newPlayerBets[playerUUID] = totalToCommit;
+
+                const newContribution = (playerContributionThisHand[playerUUID] || 0) + playerChipsCount;
+
+                allInPlayers.add(playerUUID);
+                
+                // Mark this player as having acted
+                const isRaise = totalToCommit > currentBet;
+                const newPlayerHasActed = { ...playerHasActedThisRound };
+                if (isRaise) {
+                    playerOrder.forEach(pid => {
+                        if (pid === playerUUID) return;
+                        const playerState = currentMatchState?.playerStates?.[pid] || {};
+                        if (!playerState.folded && !allInPlayers.has(pid)) {
+                            newPlayerHasActed[pid] = false;
+                        }
+                    });
+                }
+                newPlayerHasActed[playerUUID] = true;
+                pendingBetAmount = 0; // Reset pending bet
+
+                const stateUpdate = {
+                    playerChips: { ...playerChips, [playerUUID]: 0 },
+                    playerBetThisRound: newPlayerBets,
+                    playerContributionThisHand: { ...playerContributionThisHand, [playerUUID]: newContribution },
+                    currentBet: Math.max(currentBet, totalToCommit),
+                    currentPot: currentPot + playerChipsCount,
+                    allInPlayers: Array.from(allInPlayers),
+                    playerHasActedThisRound: newPlayerHasActed
+                };
+
+                await updateGameSpecificState(GAME_TYPE, stateUpdate);
+                
+                playerChips = { ...playerChips, [playerUUID]: 0 };
+                playerBetThisRound = newPlayerBets;
+                playerContributionThisHand = { ...playerContributionThisHand, [playerUUID]: newContribution };
+                currentBet = Math.max(currentBet, totalToCommit);
+                currentPot = currentPot + playerChipsCount;
+                playerHasActedThisRound = { ...newPlayerHasActed };
+                allInPlayers = new Set(allInPlayers);
+
+                // Advance to next bettor (host will handle this)
+                if (isHostClient()) {
+                    await advanceToNextBettor();
+                }
+            } catch (error) {
+                console.error('Error going all-in:', error);
+                showToast('Error: ' + error.message);
+            }
+        }
+
+        async function checkAction() {
+            try {
+                const roundBet = playerBetThisRound[playerUUID] || 0;
+                if (roundBet < currentBet) {
+                    showToast('Cannot check - there is a bet to match!');
+                    return;
+                }
+                
+                // Mark this player as having acted
+                playerHasActedThisRound[playerUUID] = true;
+
+                await updateGameSpecificState(GAME_TYPE, {
+                    playerHasActedThisRound: { ...playerHasActedThisRound }
+                });
+                
+                // Advance to next bettor (host will handle this)
+                if (isHostClient()) {
+                    await advanceToNextBettor();
+                }
+            } catch (error) {
+                console.error('Error checking:', error);
+                showToast('Error: ' + error.message);
+            }
+        }
+
+        function adjustBet(amount) {
+            const base = pendingBetAmount || currentBet;
+            const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
+            const roundBet = playerBetThisRound[playerUUID] || 0;
+            const maxRaiseTo = playerChipsCount + roundBet;
+            pendingBetAmount = Math.max(currentBet, base + amount);
+            pendingBetAmount = Math.min(pendingBetAmount, maxRaiseTo);
+            updateBettingUI();
+        }
+
+        function resetBet() {
+            pendingBetAmount = 0;
+            updateBettingUI();
+        }
+
+        async function advanceToNextBettor() {
+            // Only host should call this
+            if (!isHostClient()) return;
+
+            if (!lobbyId || !db) return;
+
+            try {
+                const snapshot = await db.ref(`lobbies/${lobbyId}/gameStates/${GAME_TYPE}`).once('value');
+                if (snapshot.exists()) {
+                    const gameState = snapshot.val();
+                    currentMatchState = gameState;
+                    if (gameState.playerOrder) playerOrder = gameState.playerOrder;
+                    if (gameState.currentBet !== undefined) currentBet = gameState.currentBet;
+                    if (gameState.currentPot !== undefined) currentPot = gameState.currentPot;
+                    if (gameState.playerBetThisRound) playerBetThisRound = gameState.playerBetThisRound;
+                    if (gameState.playerHasActedThisRound) playerHasActedThisRound = gameState.playerHasActedThisRound;
+                    if (gameState.currentBettorPosition !== undefined) currentBettorPosition = gameState.currentBettorPosition;
+                    if (gameState.playerChips) playerChips = gameState.playerChips;
+                    if (gameState.playerContributionThisHand) playerContributionThisHand = gameState.playerContributionThisHand;
+                    if (gameState.allInPlayers) allInPlayers = new Set(gameState.allInPlayers);
+                }
+            } catch (error) {
+                console.error('Error syncing game state before advance:', error);
+            }
+            
+            console.log('advanceToNextBettor called - currentBettorPosition:', currentBettorPosition, 'playerOrder length:', playerOrder.length);
+
+            const remainingPlayers = playerOrder.filter(pid => {
+                const playerState = currentMatchState.playerStates?.[pid] || {};
+                return !playerState.folded;
+            });
+
+            if (remainingPlayers.length === 1) {
+                await awardPotToRemainingPlayer(remainingPlayers[0]);
+                return;
+            }
+            
+            // Find next player who hasn't folded and isn't all-in
+            const activePlayers = playerOrder.filter(pid => {
+                const playerState = currentMatchState.playerStates?.[pid] || {};
+                return !playerState.folded && !allInPlayers.has(pid);
+            });
+            
+            console.log('Active players:', activePlayers.length);
+            
+            // If only one player left, end betting round
+            if (activePlayers.length <= 1) {
+                console.log('Only 1 or fewer active players left - ending betting round');
+                await handleBettingRoundComplete();
+                return;
+            }
+            
+            // Find next active player
+            let nextPosition = (currentBettorPosition + 1) % playerOrder.length;
+            let attempts = 0;
+            while (attempts < playerOrder.length) {
+                const nextPlayer = playerOrder[nextPosition];
+                const playerState = currentMatchState.playerStates?.[nextPlayer] || {};
+                
+                // Check if this player can act (hasn't folded and isn't all-in)
+                if (!playerState.folded && !allInPlayers.has(nextPlayer)) {
+                    const playerBet = playerBetThisRound[nextPlayer] || 0;
+                    const needsToMatch = currentBet > 0 && playerBet < currentBet;
+                    const needsToAct = currentBet === 0
+                        ? !playerHasActedThisRound?.[nextPlayer]
+                        : needsToMatch || !playerHasActedThisRound?.[nextPlayer];
+
+                    if (needsToAct) {
+                        console.log('Next player needs to act at position:', nextPosition);
+                        await updateGameSpecificState(GAME_TYPE, {
+                            currentBettorPosition: nextPosition
+                        });
+                        return;
+                    }
+                }
+                
+                nextPosition = (nextPosition + 1) % playerOrder.length;
+                attempts++;
+            }
+            
+            // If we get here, all betting is complete
+            console.log('All players have acted or matched bet - ending betting round');
+            await handleBettingRoundComplete();
+        }
+        
+        async function handleBettingRoundComplete() {
+            // Called when betting round is complete - only host calls this
+            if (!isHostClient()) return;
+            
+            console.log('handleBettingRoundComplete - phase:', roundPhase);
+            
+            if (roundPhase === 'preflop-betting') {
+                await transitionToFlop();
+            } else if (roundPhase === 'flop-betting') {
+                await transitionToTurn();
+            } else if (roundPhase === 'turn-betting') {
+                await transitionToRiver();
+            } else if (roundPhase === 'river-betting') {
+                await transitionToShowdown();
+            }
+        }
+
+        async function awardPotToRemainingPlayer(winnerId) {
+            if (!winnerId || !isHostClient()) return;
+
+            const newChips = { ...playerChips };
+            newChips[winnerId] = (newChips[winnerId] || 0) + currentPot;
+
+            await updateGameSpecificState(GAME_TYPE, {
+                phase: 'complete',
+                playerChips: newChips,
+                currentPot: 0,
+                winners: [winnerId],
+                handEvaluations: {
+                    [winnerId]: { eval: { name: 'Won by Fold' } }
+                }
+            });
+        }
+
+        function showScoreboard() {
+            // Display hand results from game state
+            const resultsDiv = document.getElementById('scoreboardResults');
+            const gameState = currentMatchState;
+            
+            if (!gameState.winners || gameState.winners.length === 0) {
+                resultsDiv.innerHTML = '<p style="color: var(--accent-gold); text-align: center;">Loading results...</p>';
+                scoreboardShown = true;
+                document.getElementById('scoreboardModal').classList.add('active');
+                return;
+            }
+            
+            let html = '';
+            const winners = gameState.winners || [];
+            const evaluations = gameState.handEvaluations || {};
+            const handStartSnapshot = gameState.handStartChips || {};
+            
+            playerOrder.forEach(pid => {
+                const player = lobbyPlayers[pid];
+                const chips = playerChips[pid] || 0;
+                const startChips = Number.isFinite(handStartSnapshot[pid]) ? handStartSnapshot[pid] : null;
+                const netDelta = startChips === null ? null : chips - startChips;
+                const evaluation = evaluations[pid];
+                const isWinner = winners.includes(pid);
+                const didFold = gameState.playerStates?.[pid]?.folded;
+                const displayName = getDisplayName(pid);
+                const netLabel = netDelta === null ? '' : `${netDelta > 0 ? '+' : ''}${netDelta}`;
+                const netColor = netDelta === null ? 'var(--text-muted)' : (netDelta >= 0 ? 'var(--accent-green)' : 'var(--accent-red)');
+                const netRow = netDelta === null ? '' : `<div style="color: ${netColor}; font-weight: bold; margin-top: 4px;">Net: ${netLabel}</div>`;
+                
+                if (evaluation) {
+                    html += `
+                        <div class="score-row-item ${isWinner ? 'winner' : ''}">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>${displayName}${didFold ? ' (Folded)' : ''}</strong><br>
+                                    <small style="color: var(--text-muted);">${evaluation.eval.name}</small>
+                                </div>
+                                <div style="text-align: right;">
+                                    ${isWinner ? '<span class="winner-badge">WINNER!</span>' : ''}
+                                    <div style="color: var(--accent-gold); font-weight: bold; margin-top: 5px;">💰 ${chips}</div>
+                                    ${netRow}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (didFold) {
+                    html += `
+                        <div class="score-row-item">
+                            <div style="display: flex; justify-content: space-between; align-items: center; opacity: 0.6;">
+                                <div>
+                                    <strong>${displayName}</strong><br>
+                                    <small style="color: var(--text-muted);">Folded</small>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: var(--accent-gold); font-weight: bold;">💰 ${chips}</div>
+                                    ${netRow}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            resultsDiv.innerHTML = html || '<p style="text-align: center;">No evaluation data available</p>';
+            
+            // Update ready status
+            const readyDisplay = document.getElementById('scoreboard-ready-status');
+            const playerStates = gameState.playerStates || {};
+            const notReadyPlayers = Object.entries(lobbyPlayers)
+                .filter(([pid, p]) => !p.isBot && !playerStates[pid]?.ready)
+                .map(([pid]) => getDisplayName(pid));
+            
+            if (notReadyPlayers.length === 0) {
+                readyDisplay.textContent = 'All players ready for next hand!';
+            } else {
+                readyDisplay.textContent = `Waiting on: ${notReadyPlayers.join(', ')}`;
+            }
+            
+            scoreboardShown = true;
+            document.getElementById('scoreboardModal').classList.add('active');
+        }
+
+        async function markNextRoundReady() {
+            try {
+                // Reset for next hand
+                hasFolded = false;
+                
+                // Rotate dealer/blind positions
+                dealerPosition = (dealerPosition + 1) % playerOrder.length;
+                smallBlindPosition = (smallBlindPosition + 1) % playerOrder.length;
+                bigBlindPosition = (bigBlindPosition + 1) % playerOrder.length;
+
+                const updatedPlayerStates = { ...(currentMatchState?.playerStates || {}) };
+                updatedPlayerStates[playerUUID] = {
+                    ...(updatedPlayerStates[playerUUID] || {}),
+                    ready: true,
+                    folded: false
+                };
+
+                await updateGameSpecificState(GAME_TYPE, {
+                    phase: 'waiting',
+                    dealerPosition,
+                    smallBlindPosition,
+                    bigBlindPosition,
+                    roundNumber: roundNumber + 1,
+                    personalDice: {},
+                    communityDice: [],
+                    currentBet: 0,
+                    playerBetThisRound: {},
+                    playerContributionThisHand: {},
+                    currentPot: 0,
+                    sidePots: [],
+                    allInPlayers: [],
+                    playerStates: updatedPlayerStates
+                });
+
+                document.getElementById('scoreboardModal').classList.remove('active');
+            } catch (error) {
+                console.error('Error marking ready for next round:', error);
+                showToast('Error: ' + error.message);
+            }
+        }
+
+        // ==============================
+        // GAME INITIALIZATION & FLOW
+        // ==============================
+        function checkAndStartGame() {
+            const allPlayers = Object.entries(lobbyPlayers);
+            const realPlayers = allPlayers.filter(([_, p]) => !p.isBot);
+            
+            // Check if we have a properly initialized game state with players
+            const hasProperGameState = currentMatchState && currentMatchState.playerOrder && currentMatchState.playerOrder.length > 0;
+            
+            if (hasProperGameState) {
+                // Game state exists and has been properly initialized with players
+                // Ensure local playerOrder is synced from Firebase state
+                if (!playerOrder || playerOrder.length === 0) {
+                    console.log('Syncing playerOrder from Firebase state:', currentMatchState.playerOrder.length, 'players');
+                    playerOrder = currentMatchState.playerOrder;
+                }
+            } else if (!gameInitialized && allPlayers.length >= 2 && isHostClient()) {
+                // No game state yet and we have enough players - initialize it
+                console.log('Initializing game - allPlayers:', allPlayers.length, 'realPlayers:', realPlayers.length);
+                gameInitialized = true;
+                startGameRound().catch(err => {
+                    console.error('startGameRound failed:', err);
+                    gameInitialized = false;
+                });
+            } else {
+                console.log('Waiting for game init - hasProperGameState:', hasProperGameState, 'allPlayers:', allPlayers.length, 'gameInitialized:', gameInitialized, 'isHost:', isHostClient());
+            }
+        }
+
+        async function startGameRound() {
+            if (!lobbyId || !db) return;
+            
+            console.log('startGameRound called - isHostClient:', isHostClient(), 'gameInitialized:', gameInitialized);
+            
+            const snapshot = await db.ref(`lobbies/${lobbyId}/gameStates/${GAME_TYPE}`).once('value');
+            if (snapshot.exists()) {
+                console.log('Game state already initialized, skipping startGameRound');
+                // Still sync playerOrder from the existing game state
+                const existingState = snapshot.val();
+                if (existingState && existingState.playerOrder && existingState.playerOrder.length > 0) {
+                    if (!playerOrder || playerOrder.length === 0) {
+                        playerOrder = existingState.playerOrder;
+                        console.log('Synced playerOrder from existing game state:', playerOrder.length, 'players');
+                    }
+                }
+                return;
+            }
+            
+            if (!isHostClient()) {
+                console.log('Not host client, skipping match state initialization');
+                return;
+            }
+            
+            console.log('Starting new Hold\'em round as host');
+            hasFolded = false;
+            
+            // Include ALL players (bots and non-bots) in turn order
+            const turnPlayers = Object.keys(lobbyPlayers);
+            const playerStates = {};
+            
+            console.log('All players for turn order:', turnPlayers.length, 'players');
+            
+            if (turnPlayers.length < 2) {
+                console.warn('Not enough players to start game. Count:', turnPlayers.length);
+                return;
+            }
+            
+            turnPlayers.forEach(pid => {
+                playerChips[pid] = STARTING_CHIPS;
+                const isBot = lobbyPlayers[pid]?.isBot || false;
+                // Bots start ready, humans start not ready
+                playerStates[pid] = { ready: isBot, folded: false };
+            });
+            
+            dealerPosition = 0;
+            smallBlindPosition = (dealerPosition + 1) % turnPlayers.length;
+            bigBlindPosition = (smallBlindPosition + 1) % turnPlayers.length;
+            playerOrder = turnPlayers;
+            
+            console.log('Game setup - playerOrder:', turnPlayers, 'smallBlind pos:', smallBlindPosition, 'bigBlind pos:', bigBlindPosition);
+            
+            const matchStateUpdate = {
+                phase: 'waiting',
+                roundNumber: 0,
+                dealerPosition,
+                smallBlindPosition,
+                bigBlindPosition,
+                playerOrder: turnPlayers,
+                playerChips,
+                playerStates,
+                personalDice: {},
+                communityDice: [],
+                currentBet: 0,
+                currentPot: 0,
+                playerBetThisRound: {},
+                playerContributionThisHand: {},
+                sidePots: [],
+                allInPlayers: [],
+                currentBettorPosition: 0
+            };
+            
+            console.log('Writing game state to Firebase with playerOrder:', turnPlayers.length, 'players');
+            try {
+                await updateGameSpecificState(GAME_TYPE, matchStateUpdate, lobbyId);
+                console.log('Successfully wrote game state to Firebase');
+                // Also set local playerOrder immediately after successful write
+                playerOrder = turnPlayers;
+                console.log('Local playerOrder set to:', playerOrder.length, 'players');
+            } catch (error) {
+                console.error('Error writing game state to Firebase:', error);
+                throw error;
+            }
+        }
+
+        async function checkAllPlayersReady() {
+            if (!currentMatchState || roundPhase !== 'waiting') {
+                console.log('checkAllPlayersReady - invalid state. currentMatchState:', !!currentMatchState, 'roundPhase:', roundPhase);
+                return;
+            }
+            // Only host should check and transition - prevents race conditions
+            if (!isHostClient()) {
+                console.log('checkAllPlayersReady - not host client');
+                return;
+            }
+            // Validate we have valid player order
+            if (!playerOrder || playerOrder.length < 2) {
+                console.log('checkAllPlayersReady - invalid playerOrder:', playerOrder);
+                return;
+            }
+            if (isReadyCheckInProgress) {
+                console.log('checkAllPlayersReady - already in progress');
+                return;
+            }
+            
+            isReadyCheckInProgress = true;
+            
+            try {
+                // Read fresh state from Firebase to get latest ready statuses
+                const snapshot = await db.ref(`lobbies/${lobbyId}/gameStates/${GAME_TYPE}/playerStates`).once('value');
+                const playerStatesFromDB = snapshot.val() || {};
+                
+                // Get all human (non-bot) players
+                const humanPlayers = Object.entries(lobbyPlayers)
+                    .filter(([_, player]) => !player.isBot)
+                    .map(([pid, _]) => pid);
+                
+                console.log('checkAllPlayersReady - humanPlayers:', humanPlayers.length, humanPlayers.map(p => p.slice(0, 8)));
+                console.log('checkAllPlayersReady - playerStatesFromDB:', playerStatesFromDB);
+                
+                // Must have at least 2 human players
+                if (humanPlayers.length < 2) {
+                    console.log('Not enough human players yet. Human count:', humanPlayers.length);
+                    return;
+                }
+                
+                // Check if all human players have marked themselves as ready
+                const allHumansReady = humanPlayers.every(playerId => {
+                    const state = playerStatesFromDB[playerId] || {};
+                    const isReady = state.ready === true;
+                    console.log(`  Player ${playerId.slice(0, 8)}: ready=${isReady}, state:`, state);
+                    return isReady;
+                });
+                
+                console.log('allHumansReady:', allHumansReady, 'humanPlayerCount:', humanPlayers.length);
+                
+                // Only proceed if we have at least 2 human players and ALL are ready
+                if (allHumansReady) {
+                    console.log('All humans ready! Starting pre-flop rolling phase...');
+                    await startPreFlopRolling();
+                } else {
+                    console.log('Waiting for all humans to be ready...');
+                }
+            } catch (error) {
+                console.error('Error in checkAllPlayersReady:', error);
+            } finally {
+                isReadyCheckInProgress = false;
+            }
+        }
+
+        async function startPreFlopRolling() {
+            if (isPreFlopRollingInProgress) {
+                console.log('startPreFlopRolling - already in progress');
+                return;
+            }
+            
+            if (!isHostClient()) {
+                console.log('Not host client, skipping startPreFlopRolling');
+                return;
+            }
+            
+            console.log('startPreFlopRolling called - playerOrder:', playerOrder, 'length:', playerOrder?.length);
+            console.log('smallBlindPosition:', smallBlindPosition, 'bigBlindPosition:', bigBlindPosition);
+            
+            // Validate we have valid player order with proper data
+            if (!playerOrder || playerOrder.length < 2) {
+                console.error('Invalid playerOrder for startPreFlopRolling:', playerOrder);
+                console.warn('Cannot proceed with preflop rolling - waiting for proper initialization');
+                return;
+            }
+            
+            // Double-check that all players in playerOrder actually exist in currentMatchState
+            const playerStatesData = currentMatchState?.playerStates || {};
+            const allPlayersInitialized = playerOrder.every(pid => playerStatesData[pid]);
+            if (!allPlayersInitialized) {
+                console.warn('Not all players initialized in playerStates yet. Waiting...');
+                return;
+            }
+            
+            // Set progress flag after validation passes
+            if (isPreFlopRollingInProgress) {
+                console.log('PreFlop rolling already in progress, skipping');
+                return;
+            }
+            isPreFlopRollingInProgress = true;
+            
+            // Reset ready flag for next round
+            isCurrentPlayerMarkedReady = false;
+            
+            // Each player rolls 2 personal dice
+            const newPersonalDice = {};
+            playerOrder.forEach(pid => {
+                newPersonalDice[pid] = [rollDie(), rollDie()];
+            });
+
+            // Snapshot chips before posting blinds for per-hand net gain/loss
+            handStartChips = playerOrder.reduce((acc, pid) => {
+                const currentChips = Number.isFinite(playerChips[pid]) ? playerChips[pid] : STARTING_CHIPS;
+                acc[pid] = currentChips;
+                return acc;
+            }, {});
+            
+            console.log('Rolling personal dice:', newPersonalDice);
+            
+            // Calculate next bettor (after big blind)
+            const nextBettorPos = (bigBlindPosition + 1) % playerOrder.length;
+            console.log('Calculated positions - smallBlind:', smallBlindPosition, 'bigBlind:', bigBlindPosition, 'nextBettor:', nextBettorPos);
+            
+            // Get the players who post blinds
+            const smallBlindPlayer = playerOrder[smallBlindPosition];
+            const bigBlindPlayer = playerOrder[bigBlindPosition];
+            
+            if (!smallBlindPlayer || !bigBlindPlayer) {
+                console.error('Invalid blind players:', smallBlindPlayer, bigBlindPlayer);
+                return;
+            }
+            
+            const updateData = {
+                phase: 'preflop-betting',
+                personalDice: newPersonalDice,
+                communityDice: [],
+                currentBet: BIG_BLIND,
+                currentBettorPosition: nextBettorPos,
+                playerBetThisRound: {
+                    [smallBlindPlayer]: SMALL_BLIND,
+                    [bigBlindPlayer]: BIG_BLIND
+                },
+                playerContributionThisHand: playerOrder.reduce((acc, pid) => {
+                    if (pid === smallBlindPlayer) {
+                        acc[pid] = SMALL_BLIND;
+                    } else if (pid === bigBlindPlayer) {
+                        acc[pid] = BIG_BLIND;
+                    } else {
+                        acc[pid] = 0;
+                    }
+                    return acc;
+                }, {}),
+                playerHasActedThisRound: {},
+                currentPot: SMALL_BLIND + BIG_BLIND,
+                playerChips: updateChipsAfterBlinds(),
+                handStartChips: handStartChips,
+                playerStates: playerOrder.reduce((acc, pid) => {
+                    acc[pid] = { ready: false, folded: false };
+                    return acc;
+                }, {})
+            };
+            
+            console.log('Updating Firebase with:', updateData);
+            
+            // Validate all numeric values are not NaN
+            if (!Number.isFinite(updateData.currentBet)) {
+                console.error('currentBet is NaN:', updateData.currentBet);
+                return;
+            }
+            if (!Number.isFinite(updateData.currentBettorPosition)) {
+                console.error('currentBettorPosition is NaN:', updateData.currentBettorPosition);
+                return;
+            }
+            if (!Number.isFinite(updateData.currentPot)) {
+                console.error('currentPot is NaN:', updateData.currentPot);
+                return;
+            }
+            
+            try {
+                await updateGameSpecificState(GAME_TYPE, updateData, lobbyId);
+                console.log('Successfully updated to preflop-betting phase');
+            } catch (error) {
+                console.error('Error in startPreFlopRolling:', error);
+            } finally {
+                isPreFlopRollingInProgress = false;
+            }
+        }
+
+        function updateChipsAfterBlinds() {
+            const newChips = { ...playerChips };
+            const sbPlayer = playerOrder[smallBlindPosition];
+            const bbPlayer = playerOrder[bigBlindPosition];
+            
+            console.log('updateChipsAfterBlinds - sbPlayer:', sbPlayer, 'bbPlayer:', bbPlayer);
+            console.log('Current chips for sbPlayer:', newChips[sbPlayer], 'bbPlayer:', newChips[bbPlayer]);
+            
+            if (sbPlayer) newChips[sbPlayer] = (newChips[sbPlayer] || STARTING_CHIPS) - SMALL_BLIND;
+            if (bbPlayer) newChips[bbPlayer] = (newChips[bbPlayer] || STARTING_CHIPS) - BIG_BLIND;
+            
+            console.log('Updated chips:', newChips);
+            return newChips;
+        }
+
+        function rollDie() {
+            return Math.floor(Math.random() * 6) + 1;
+        }
+
+        // ==============================
+        // HAND EVALUATION & RANKINGS
+        // ==============================
+        function evaluateHand(hand) {
+            // hand = [die1, die2, die3, die4, die5]
+            const sorted = hand.slice().sort((a, b) => b - a);
+            
+            // Count occurrences
+            const counts = {};
+            sorted.forEach(d => {
+                counts[d] = (counts[d] || 0) + 1;
+            });
+            
+            const countValues = Object.values(counts).sort((a, b) => b - a);
+            const countKeys = Object.keys(counts).map(Number).sort((a, b) => b - a);
+            
+            // Five of a kind
+            if (countValues[0] === 5) {
+                return { rank: 8, value: sorted[0], name: 'Five of a Kind (' + sorted[0] + 's)' };
+            }
+            
+            // Four of a kind
+            if (countValues[0] === 4) {
+                const fourValue = countKeys.find(k => counts[k] === 4);
+                return { rank: 7, value: fourValue, kicker: countKeys.find(k => counts[k] === 1), name: 'Four of a Kind (' + fourValue + 's)' };
+            }
+            
+            // Straight
+            const isStraight = (arr) => {
+                const sorted = arr.slice().sort((a, b) => b - a);
+                if (sorted[0] - sorted[4] === 4 && new Set(sorted).size === 5) {
+                    return true;
+                }
+                return false;
+            };
+            
+            if (isStraight(sorted)) {
+                // Check if it's the big straight (2-6) or any other
+                const set = new Set(sorted);
+                let straightValue = 0;
+                if (set.has(2) && set.has(3) && set.has(4) && set.has(5) && set.has(6)) {
+                    straightValue = 6; // Big straight
+                } else if (set.has(1) && set.has(2) && set.has(3) && set.has(4) && set.has(5)) {
+                    straightValue = 5; // Little straight
+                }
+                return { rank: 6, value: straightValue, name: straightValue === 6 ? 'Big Straight (2-6)' : 'Little Straight (1-5)' };
+            }
+            
+            // Full house
+            if (countValues[0] === 3 && countValues[1] === 2) {
+                const threeValue = countKeys.find(k => counts[k] === 3);
+                const pairValue = countKeys.find(k => counts[k] === 2);
+                return { rank: 5, value: threeValue, pairValue, name: 'Full House (' + threeValue + 's over ' + pairValue + 's)' };
+            }
+            
+            // Three of a kind
+            if (countValues[0] === 3) {
+                const threeValue = countKeys.find(k => counts[k] === 3);
+                return { rank: 4, value: threeValue, kickers: countKeys.filter(k => counts[k] === 1), name: 'Three of a Kind (' + threeValue + 's)' };
+            }
+            
+            // Two pair
+            if (countValues[0] === 2 && countValues[1] === 2) {
+                const pairs = countKeys.filter(k => counts[k] === 2).sort((a, b) => b - a);
+                return { rank: 3, value: Math.max(...pairs), value2: Math.min(...pairs), kicker: countKeys.find(k => counts[k] === 1), name: 'Two Pair (' + pairs[0] + 's and ' + pairs[1] + 's)' };
+            }
+            
+            // One pair
+            if (countValues[0] === 2) {
+                const pairValue = countKeys.find(k => counts[k] === 2);
+                return { rank: 2, value: pairValue, kickers: countKeys.filter(k => counts[k] === 1), name: 'Pair of ' + pairValue + 's' };
+            }
+            
+            // High card
+            return { rank: 1, value: sorted[0], kickers: sorted.slice(1), name: 'High Card ' + sorted[0] };
+        }
+
+        function compareHands(hand1, hand2) {
+            // Returns 1 if hand1 wins, -1 if hand2 wins, 0 if tie
+            const eval1 = evaluateHand(hand1);
+            const eval2 = evaluateHand(hand2);
+            
+            if (eval1.rank !== eval2.rank) {
+                return eval1.rank > eval2.rank ? 1 : -1;
+            }
+            
+            // Same rank, compare values
+            if (eval1.value !== eval2.value) {
+                return eval1.value > eval2.value ? 1 : -1;
+            }
+            
+            // Handle tiebreakers
+            if (eval1.pairValue !== undefined && eval2.pairValue !== undefined) {
+                if (eval1.pairValue !== eval2.pairValue) {
+                    return eval1.pairValue > eval2.pairValue ? 1 : -1;
+                }
+            }
+            
+            if (eval1.kicker !== undefined && eval2.kicker !== undefined) {
+                if (eval1.kicker !== eval2.kicker) {
+                    return eval1.kicker > eval2.kicker ? 1 : -1;
+                }
+            }
+            
+            if (Array.isArray(eval1.kickers) && Array.isArray(eval2.kickers)) {
+                for (let i = 0; i < eval1.kickers.length; i++) {
+                    if (eval1.kickers[i] !== eval2.kickers[i]) {
+                        return eval1.kickers[i] > eval2.kickers[i] ? 1 : -1;
+                    }
+                }
+            }
+            
+            return 0; // Tie
+        }
+
+        function getBestFiveFromSeven(personalDice, communityDice) {
+            // PersonalDice = [d1, d2], CommunityDice = [d1, d2, d3, d4, d5]
+            // Return best 5-card hand from all 7
+            const allDice = [...personalDice, ...communityDice];
+            const combinations = [];
+            
+            // Generate all 5-card combinations
+            for (let i = 0; i < allDice.length; i++) {
+                for (let j = i + 1; j < allDice.length; j++) {
+                    for (let k = j + 1; k < allDice.length; k++) {
+                        for (let l = k + 1; l < allDice.length; l++) {
+                            for (let m = l + 1; m < allDice.length; m++) {
+                                combinations.push([allDice[i], allDice[j], allDice[k], allDice[l], allDice[m]]);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Find best combination
+            let bestHand = combinations[0];
+            let bestEval = evaluateHand(bestHand);
+            
+            combinations.forEach(hand => {
+                const eval = evaluateHand(hand);
+                if (compareHands(hand, bestHand) > 0) {
+                    bestHand = hand;
+                    bestEval = eval;
+                }
+            });
+            
+            return { hand: bestHand, eval: bestEval };
+        }
+
+        // ==============================
+        // SHOWDOWN & SCORING
+        // ==============================
+        async function evaluateShowdown() {
+            if (!isHostClient()) return;
+            
+            // Get all active (non-folded) players
+            const activePlayers = playerOrder.filter(pid => {
+                const playerState = currentMatchState.playerStates?.[pid] || {};
+                return !playerState.folded;
+            });
+            
+            // Evaluate each active player's hand
+            const evaluations = {};
+            activePlayers.forEach(pid => {
+                const pDice = personalDice[pid] || [0, 0];
+                const best = getBestFiveFromSeven(pDice, communityDice);
+                evaluations[pid] = best;
+            });
+            
+            // Find winner(s)
+            const sorted = activePlayers.sort((a, b) => {
+                return compareHands(evaluations[b].hand, evaluations[a].hand);
+            });
+            
+            const winners = [sorted[0]];
+            for (let i = 1; i < sorted.length; i++) {
+                if (compareHands(evaluations[sorted[i]].hand, evaluations[winners[0]].hand) === 0) {
+                    winners.push(sorted[i]);
+                } else {
+                    break;
+                }
+            }
+            
+            await distributeWinnings(winners, evaluations);
+        }
+
+        async function distributeWinnings(winners, evaluations) {
+            if (!isHostClient()) return;
+            
+            const winningsPerPlayer = Math.floor(currentPot / winners.length);
+            const remainder = currentPot % winners.length;
+            
+            const newChips = { ...playerChips };
+            winners.forEach((pid, i) => {
+                newChips[pid] = (newChips[pid] || 0) + winningsPerPlayer;
+                if (i === 0) {
+                    newChips[pid] += remainder; // Give remainder to first winner
+                }
+            });
+            
+            await updateGameSpecificState(GAME_TYPE, {
+                phase: 'complete',
+                playerChips: newChips,
+                winners,
+                handEvaluations: evaluations
+            });
+        }
+
+        // ==============================
+        // UI & UTILITIES
+        // ==============================
+        function returnToLobby() {
+            if (confirm('Are you sure you want to leave this game?')) {
+                window.location.href = '../../lobby.html';
+            }
+        }
+
+        function returnToLobbyFromScoreboard() {
+            window.location.href = '../../lobby.html';
+        }
+
+        function getHostPlayerId() {
+            const realPlayers = Object.entries(lobbyPlayers)
+                .filter(([_, player]) => !player.isBot)
+                .sort((a, b) => {
+                    const joinedAtDiff = (a[1].joinedAt || 0) - (b[1].joinedAt || 0);
+                    if (joinedAtDiff !== 0) return joinedAtDiff;
+                    return a[0].localeCompare(b[0]);
+                });
+
+            return realPlayers.length > 0 ? realPlayers[0][0] : null;
+        }
+
+        function isHostClient() {
+            return getHostPlayerId() === playerUUID;
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
