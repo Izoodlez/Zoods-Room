@@ -569,11 +569,11 @@
                         <div class="bet-value" id="player-chips">1000</div>
                     </div>
                     <div class="bet-item">
-                        <div class="bet-label">Bet</div>
+                        <div class="bet-label">This Round</div>
                         <div class="bet-value" id="bet-display">0</div>
                     </div>
                     <div class="bet-item">
-                        <div class="bet-label">Contributed</div>
+                        <div class="bet-label">To Call</div>
                         <div class="bet-value" id="round-bet-display">0</div>
                     </div>
                 </div>
@@ -995,12 +995,18 @@
         }
 
         function handlePhaseTransitions() {
+            // Only host handles phase transitions
+            if (!isHostClient()) return;
+            
             // Auto-advance phases if all betting is complete
             if (roundPhase === 'preflop-betting' && isBettingRoundComplete()) {
+                console.log('Preflop betting complete, transitioning to flop');
                 transitionToFlop();
             } else if (roundPhase === 'flop-betting' && isBettingRoundComplete()) {
+                console.log('Flop betting complete, transitioning to turn');
                 transitionToTurn();
             } else if (roundPhase === 'turn-betting' && isBettingRoundComplete()) {
+                console.log('Turn betting complete, transitioning to river');
                 transitionToRiver();
             } else if (roundPhase === 'river-betting' && isBettingRoundComplete()) {
                 transitionToShowdown();
@@ -1031,7 +1037,7 @@
         }
 
         function isBettingRoundComplete() {
-            // All non-folded, non-all-in players have matched current bet
+            // All non-folded, non-all-in players have matched current bet AND acted
             if (!currentMatchState || !currentMatchState.playerStates || !playerOrder || playerOrder.length === 0) {
                 return false;
             }
@@ -1042,20 +1048,20 @@
             });
             
             if (activePlayers.length === 0) return false;
+            if (activePlayers.length === 1) return true; // Only one player left, round is complete
 
-            if (currentBet === 0) {
-                return activePlayers.every(pid => playerHasActedThisRound?.[pid]);
-            }
-            
+            // Check if all active players have matched bet and acted
             return activePlayers.every(pid => {
-                const bet = playerBetThisRound[pid] || 0;
-                const matchedBet = bet === currentBet || allInPlayers.has(pid);
-                const hasActed = !!playerHasActedThisRound?.[pid] || allInPlayers.has(pid);
-                return matchedBet && hasActed;
+                const roundBet = playerBetThisRound[pid] || 0;
+                const hasActed = !!playerHasActedThisRound?.[pid];
+                const hasMatched = roundBet >= currentBet;
+                return hasMatched && hasActed;
             });
         }
 
         async function transitionToFlop() {
+            if (!isHostClient()) return;
+            
             const flop = [rollDie(), rollDie(), rollDie()];
             communityDice = flop;
             
@@ -1065,23 +1071,35 @@
             currentBet = 0;
             currentBettorPosition = smallBlindPosition;
             
+            console.log('Transitioning to flop with dice:', flop);
+            
             await updateGameSpecificState(GAME_TYPE, {
                 phase: 'flop-reveal',
                 communityDice: flop,
                 playerBetThisRound: {},
                 playerHasActedThisRound: {},
                 currentBet: 0,
-                currentBettorPosition
+                currentBettorPosition,
+                currentPot: currentPot
             });
 
-            setTimeout(() => {
-                if (isHostClient()) {
-                    updateGameSpecificState(GAME_TYPE, { phase: 'flop-betting' });
-                }
-            }, REVEAL_DELAY_MS);
+            await new Promise(resolve => setTimeout(resolve, REVEAL_DELAY_MS + 500));
+            
+            if (isHostClient()) {
+                console.log('Transitioning flop to betting phase');
+                await updateGameSpecificState(GAME_TYPE, { 
+                    phase: 'flop-betting',
+                    playerHasActedThisRound: {},
+                    playerBetThisRound: {},
+                    currentBet: 0,
+                    currentBettorPosition: smallBlindPosition
+                });
+            }
         }
 
         async function transitionToTurn() {
+            if (!isHostClient()) return;
+            
             const turn = rollDie();
             communityDice.push(turn);
             
@@ -1091,23 +1109,35 @@
             currentBet = 0;
             currentBettorPosition = smallBlindPosition;
             
+            console.log('Transitioning to turn with community dice:', communityDice);
+            
             await updateGameSpecificState(GAME_TYPE, {
                 phase: 'turn-reveal',
                 communityDice,
                 playerBetThisRound: {},
                 playerHasActedThisRound: {},
                 currentBet: 0,
-                currentBettorPosition
+                currentBettorPosition,
+                currentPot: currentPot
             });
 
-            setTimeout(() => {
-                if (isHostClient()) {
-                    updateGameSpecificState(GAME_TYPE, { phase: 'turn-betting' });
-                }
-            }, REVEAL_DELAY_MS);
+            await new Promise(resolve => setTimeout(resolve, REVEAL_DELAY_MS + 500));
+            
+            if (isHostClient()) {
+                console.log('Transitioning turn to betting phase');
+                await updateGameSpecificState(GAME_TYPE, { 
+                    phase: 'turn-betting',
+                    playerHasActedThisRound: {},
+                    playerBetThisRound: {},
+                    currentBet: 0,
+                    currentBettorPosition: smallBlindPosition
+                });
+            }
         }
 
         async function transitionToRiver() {
+            if (!isHostClient()) return;
+            
             const river = rollDie();
             communityDice.push(river);
             
@@ -1117,20 +1147,30 @@
             currentBet = 0;
             currentBettorPosition = smallBlindPosition;
             
+            console.log('Transitioning to river with community dice:', communityDice);
+            
             await updateGameSpecificState(GAME_TYPE, {
                 phase: 'river-reveal',
                 communityDice,
                 playerBetThisRound: {},
                 playerHasActedThisRound: {},
                 currentBet: 0,
-                currentBettorPosition
+                currentBettorPosition,
+                currentPot: currentPot
             });
 
-            setTimeout(() => {
-                if (isHostClient()) {
-                    updateGameSpecificState(GAME_TYPE, { phase: 'river-betting' });
-                }
-            }, REVEAL_DELAY_MS);
+            await new Promise(resolve => setTimeout(resolve, REVEAL_DELAY_MS + 500));
+            
+            if (isHostClient()) {
+                console.log('Transitioning river to betting phase');
+                await updateGameSpecificState(GAME_TYPE, { 
+                    phase: 'river-betting',
+                    playerHasActedThisRound: {},
+                    playerBetThisRound: {},
+                    currentBet: 0,
+                    currentBettorPosition: smallBlindPosition
+                });
+            }
         }
 
         async function transitionToShowdown() {
@@ -1308,17 +1348,16 @@
                 const potValueEl = document.getElementById('pot-value');
                 
                 if (playerChipsEl) playerChipsEl.textContent = playerChipsCount;
-                const contributedThisHand = playerContributionThisHand[playerUUID] || 0;
-                if (roundBetDisplayEl) roundBetDisplayEl.textContent = contributedThisHand;
+                // \"This Round\" shows what they've bet in this round
+                if (betDisplayEl) betDisplayEl.textContent = roundBet;
+                // \"To Call\" shows what they need to add to match current bet
+                if (roundBetDisplayEl) roundBetDisplayEl.textContent = amountToCall;
                 if (potValueEl) potValueEl.textContent = currentPot;
                 
                 const maxRaiseTo = playerChipsCount + roundBet;
                 if (pendingBetAmount > maxRaiseTo) {
                     pendingBetAmount = maxRaiseTo;
                 }
-
-                const pendingTarget = pendingBetAmount > currentBet ? pendingBetAmount : currentBet;
-                if (betDisplayEl) betDisplayEl.textContent = pendingTarget;
                 
                 const isMyTurn = playerOrder[currentBettorPosition] === playerUUID;
                 const isFolded = hasFolded;
@@ -1555,7 +1594,8 @@
 
         async function callBet() {
             try {
-                const amountToCall = Math.max(0, currentBet - (playerBetThisRound[playerUUID] || 0));
+                const currentRoundBet = playerBetThisRound[playerUUID] || 0;
+                const amountToCall = Math.max(0, currentBet - currentRoundBet);
                 const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
                 
                 if (amountToCall > playerChipsCount) {
@@ -1565,10 +1605,11 @@
 
                 // Deduct from chips
                 const newChips = playerChipsCount - amountToCall;
-                const newRoundBet = (playerBetThisRound[playerUUID] || 0) + amountToCall;
+                const newRoundBet = currentRoundBet + amountToCall;
                 const newContribution = (playerContributionThisHand[playerUUID] || 0) + amountToCall;
 
-                if (newChips === 0) {
+                const isAllIn = newChips === 0;
+                if (isAllIn) {
                     allInPlayers.add(playerUUID);
                 }
 
@@ -1576,8 +1617,11 @@
                 newPlayerBets[playerUUID] = newRoundBet;
                 
                 // Mark this player as having acted
-                playerHasActedThisRound[playerUUID] = true;
+                const newPlayerHasActed = { ...playerHasActedThisRound };
+                newPlayerHasActed[playerUUID] = true;
                 pendingBetAmount = 0; // Reset pending bet
+
+                console.log(`${getDisplayName(playerUUID)} calls. Amount to call: ${amountToCall}, New round bet: ${newRoundBet}, Contribution: ${newContribution}`);
 
                 const stateUpdate = {
                     playerChips: { ...playerChips, [playerUUID]: newChips },
@@ -1586,7 +1630,7 @@
                     currentBet: currentBet,
                     currentPot: currentPot + amountToCall,
                     allInPlayers: Array.from(allInPlayers),
-                    playerHasActedThisRound: { ...playerHasActedThisRound }
+                    playerHasActedThisRound: newPlayerHasActed
                 };
 
                 await updateGameSpecificState(GAME_TYPE, stateUpdate);
@@ -1595,7 +1639,7 @@
                 playerBetThisRound = newPlayerBets;
                 playerContributionThisHand = { ...playerContributionThisHand, [playerUUID]: newContribution };
                 currentPot = currentPot + amountToCall;
-                playerHasActedThisRound = { ...playerHasActedThisRound };
+                playerHasActedThisRound = newPlayerHasActed;
                 allInPlayers = new Set(allInPlayers);
 
                 // Advance to next bettor (host will handle this)
@@ -1611,13 +1655,15 @@
         async function raiseBet() {
             try {
                 const raiseAmount = pendingBetAmount;
+                const currentRoundBet = playerBetThisRound[playerUUID] || 0;
+                
                 if (raiseAmount <= currentBet) {
                     showToast('Raise must be greater than current bet. Current: ' + currentBet + ', Pending: ' + raiseAmount);
                     return;
                 }
 
                 const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
-                const amountToAdd = raiseAmount - (playerBetThisRound[playerUUID] || 0);
+                const amountToAdd = raiseAmount - currentRoundBet;
 
                 if (amountToAdd > playerChipsCount) {
                     showToast('Not enough chips for that raise! Go all-in instead.');
@@ -1625,27 +1671,31 @@
                 }
 
                 const newChips = playerChipsCount - amountToAdd;
-                const newRoundBet = (playerBetThisRound[playerUUID] || 0) + amountToAdd;
+                const newRoundBet = currentRoundBet + amountToAdd;
                 const newContribution = (playerContributionThisHand[playerUUID] || 0) + amountToAdd;
 
-                if (newChips === 0) {
+                const isAllIn = newChips === 0;
+                if (isAllIn) {
                     allInPlayers.add(playerUUID);
                 }
 
                 const newPlayerBets = { ...playerBetThisRound };
                 newPlayerBets[playerUUID] = newRoundBet;
                 
-                // Mark this player as having acted
+                // When a raise occurs, all other players need to act again
                 const newPlayerHasActed = { ...playerHasActedThisRound };
                 playerOrder.forEach(pid => {
-                    if (pid === playerUUID) return;
+                    if (pid === playerUUID) return; // This player is the raiser
                     const playerState = currentMatchState?.playerStates?.[pid] || {};
+                    // Reset acted status for all non-folded, non-all-in players (they need to re-act to the raise)
                     if (!playerState.folded && !allInPlayers.has(pid)) {
                         newPlayerHasActed[pid] = false;
                     }
                 });
-                newPlayerHasActed[playerUUID] = true;
+                newPlayerHasActed[playerUUID] = true; // Raiser has acted
                 pendingBetAmount = 0; // Reset pending bet
+
+                console.log(`${getDisplayName(playerUUID)} raises to ${raiseAmount}. Amount added: ${amountToAdd}, New round bet: ${newRoundBet}`);
 
                 const stateUpdate = {
                     playerChips: { ...playerChips, [playerUUID]: newChips },
@@ -1664,7 +1714,7 @@
                 playerContributionThisHand = { ...playerContributionThisHand, [playerUUID]: newContribution };
                 currentBet = raiseAmount;
                 currentPot = currentPot + amountToAdd;
-                playerHasActedThisRound = { ...newPlayerHasActed };
+                playerHasActedThisRound = newPlayerHasActed;
                 allInPlayers = new Set(allInPlayers);
 
                 // Advance to next bettor (host will handle this)
@@ -1706,7 +1756,8 @@
         async function goAllIn() {
             try {
                 const playerChipsCount = playerChips[playerUUID] || STARTING_CHIPS;
-                const totalToCommit = (playerBetThisRound[playerUUID] || 0) + playerChipsCount;
+                const currentRoundBet = playerBetThisRound[playerUUID] || 0;
+                const totalToCommit = currentRoundBet + playerChipsCount;
 
                 const newPlayerBets = { ...playerBetThisRound };
                 newPlayerBets[playerUUID] = totalToCommit;
@@ -1715,10 +1766,10 @@
 
                 allInPlayers.add(playerUUID);
                 
-                // Mark this player as having acted
-                const isRaise = totalToCommit > currentBet;
+                // If this is an all-in raise (total > current bet), reset other players' acted status
+                const isAllInRaise = totalToCommit > currentBet;
                 const newPlayerHasActed = { ...playerHasActedThisRound };
-                if (isRaise) {
+                if (isAllInRaise) {
                     playerOrder.forEach(pid => {
                         if (pid === playerUUID) return;
                         const playerState = currentMatchState?.playerStates?.[pid] || {};
@@ -1727,8 +1778,10 @@
                         }
                     });
                 }
-                newPlayerHasActed[playerUUID] = true;
+                newPlayerHasActed[playerUUID] = true; // This player has acted (went all-in)
                 pendingBetAmount = 0; // Reset pending bet
+
+                console.log(`${getDisplayName(playerUUID)} goes all-in for ${totalToCommit}. Previous round bet: ${currentRoundBet}`);
 
                 const stateUpdate = {
                     playerChips: { ...playerChips, [playerUUID]: 0 },
@@ -1747,7 +1800,7 @@
                 playerContributionThisHand = { ...playerContributionThisHand, [playerUUID]: newContribution };
                 currentBet = Math.max(currentBet, totalToCommit);
                 currentPot = currentPot + playerChipsCount;
-                playerHasActedThisRound = { ...newPlayerHasActed };
+                playerHasActedThisRound = newPlayerHasActed;
                 allInPlayers = new Set(allInPlayers);
 
                 // Advance to next bettor (host will handle this)
@@ -1833,6 +1886,7 @@
             });
 
             if (remainingPlayers.length === 1) {
+                console.log('Only one player remaining - awarding pot');
                 await awardPotToRemainingPlayer(remainingPlayers[0]);
                 return;
             }
@@ -1843,17 +1897,46 @@
                 return !playerState.folded && !allInPlayers.has(pid);
             });
             
-            console.log('Active players:', activePlayers.length);
+            console.log('Active players (not folded, not all-in):', activePlayers.length);
             
-            // If only one player left, end betting round
-            if (activePlayers.length <= 1) {
-                console.log('Only 1 or fewer active players left - ending betting round');
+            // If only one active player (others folded or all-in), end betting round
+            if (activePlayers.length === 0) {
+                console.log('No active players left - ending betting round');
                 await handleBettingRoundComplete();
                 return;
             }
             
-            // Find next active player
-            let nextPosition = (currentBettorPosition + 1) % playerOrder.length;
+            if (activePlayers.length === 1) {
+                console.log('Only 1 active player left - ending betting round');
+                await handleBettingRoundComplete();
+                return;
+            }
+            
+            // Determine starting position for search
+            // If current player hasn't acted yet (first action in betting round), check them first
+            const currentPlayer = playerOrder[currentBettorPosition];
+            const currentPlayerState = currentMatchState.playerStates?.[currentPlayer] || {};
+            const currentPlayerBet = playerBetThisRound[currentPlayer] || 0;
+            const currentPlayerHasActed = !!playerHasActedThisRound?.[currentPlayer];
+            const currentPlayerHasMatched = currentPlayerBet >= currentBet;
+            
+            // Check if current player needs to act (hasn't acted or hasn't matched bet)
+            const currentPlayerNeedsToAct = !currentPlayerState.folded && 
+                                            !allInPlayers.has(currentPlayer) &&
+                                            (!currentPlayerHasMatched || !currentPlayerHasActed);
+            
+            let startPosition;
+            if (currentPlayerNeedsToAct) {
+                // Current player still needs to act, keep them as the bettor
+                console.log(`Current player at position ${currentBettorPosition} still needs to act`);
+                return;
+            } else {
+                // Current player has acted and matched, move to next player
+                startPosition = (currentBettorPosition + 1) % playerOrder.length;
+            }
+            
+            // Find next active player who needs to act
+            let nextPosition = startPosition;
             let attempts = 0;
             while (attempts < playerOrder.length) {
                 const nextPlayer = playerOrder[nextPosition];
@@ -1862,13 +1945,14 @@
                 // Check if this player can act (hasn't folded and isn't all-in)
                 if (!playerState.folded && !allInPlayers.has(nextPlayer)) {
                     const playerBet = playerBetThisRound[nextPlayer] || 0;
-                    const needsToMatch = currentBet > 0 && playerBet < currentBet;
-                    const needsToAct = currentBet === 0
-                        ? !playerHasActedThisRound?.[nextPlayer]
-                        : needsToMatch || !playerHasActedThisRound?.[nextPlayer];
+                    const hasMatched = playerBet >= currentBet;
+                    const hasActed = !!playerHasActedThisRound?.[nextPlayer];
+                    
+                    // Player needs to act if they haven't matched the bet OR haven't acted yet
+                    const needsToAct = !hasMatched || !hasActed;
 
                     if (needsToAct) {
-                        console.log('Next player needs to act at position:', nextPosition);
+                        console.log(`Next player at position ${nextPosition} needs to act. Has matched: ${hasMatched}, Has acted: ${hasActed}, Their bet: ${playerBet}, Current bet: ${currentBet}`);
                         await updateGameSpecificState(GAME_TYPE, {
                             currentBettorPosition: nextPosition
                         });
@@ -1880,8 +1964,8 @@
                 attempts++;
             }
             
-            // If we get here, all betting is complete
-            console.log('All players have acted or matched bet - ending betting round');
+            // If we get here, all active players have matched the bet and acted
+            console.log('All active players have matched bet and acted - ending betting round');
             await handleBettingRoundComplete();
         }
         
@@ -2007,10 +2091,13 @@
                 // Reset for next hand
                 hasFolded = false;
                 
-                // Rotate dealer/blind positions
-                dealerPosition = (dealerPosition + 1) % playerOrder.length;
-                smallBlindPosition = (smallBlindPosition + 1) % playerOrder.length;
-                bigBlindPosition = (bigBlindPosition + 1) % playerOrder.length;
+                // Rotate dealer/blind positions for next hand (Texas Hold'em button movement)
+                if (playerOrder && playerOrder.length > 0) {
+                    dealerPosition = (dealerPosition + 1) % playerOrder.length;
+                    smallBlindPosition = (dealerPosition + 1) % playerOrder.length;
+                    bigBlindPosition = (smallBlindPosition + 1) % playerOrder.length;
+                    console.log('Next hand positions - Dealer:', dealerPosition, 'SB:', smallBlindPosition, 'BB:', bigBlindPosition);
+                }
 
                 const updatedPlayerStates = { ...(currentMatchState?.playerStates || {}) };
                 updatedPlayerStates[playerUUID] = {
