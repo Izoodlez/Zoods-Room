@@ -95,7 +95,16 @@
     
     <div id="root" class="h-screen w-screen overflow-hidden"></div>
 
-    <script type="text/babel">
+    <script>
+        Babel.registerPreset('classic-react', {
+            presets: [
+                Babel.availablePresets.env,
+                [Babel.availablePresets.react, { runtime: 'classic' }]
+            ]
+        });
+    </script>
+
+    <script type="text/babel" data-presets="classic-react">
         const { useState, useEffect, useRef } = React;
 
         // --- ICONS ---
