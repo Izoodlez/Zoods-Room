@@ -451,10 +451,6 @@
                 </select>
             </div>
 
-            <button id="googleSignInBtn" type="button" class="btn-secondary btn-small">
-                Sign in with Google
-            </button>
-
             <button id="publicMatchBtn" onclick="findPublicMatch()">
                 Find Public Match
             </button>
@@ -462,8 +458,6 @@
             <button id="createPrivateBtn" onclick="createPrivateMatch()" class="btn-secondary">
                 Create Private Match
             </button>
-
-            <div class="status-message hidden" id="authStatus"></div>
 
             <div class="status-message waiting hidden" id="publicStatus">
                 <div class="loading">
@@ -567,64 +561,12 @@
             console.log("Firebase initialized:", initialized);
         }
 
-        function updateAuthUI() {
-            const signInBtn = document.getElementById('googleSignInBtn');
-            const authStatus = document.getElementById('authStatus');
-
-            if (signInBtn) {
-                if (auth && auth.currentUser) {
-                    signInBtn.textContent = 'Google Signed In';
-                    signInBtn.disabled = true;
-                } else {
-                    signInBtn.textContent = 'Sign in with Google';
-                    signInBtn.disabled = false;
-                }
-            }
-
-            if (authStatus) {
-                if (auth && auth.currentUser) {
-                    const userName = auth.currentUser.displayName || auth.currentUser.email || 'Google User';
-                    authStatus.textContent = `Signed in as ${userName}`;
-                    authStatus.className = 'status-message waiting';
-                    authStatus.classList.remove('hidden');
-                } else {
-                    authStatus.textContent = 'Please sign in with Google to create or join a lobby.';
-                    authStatus.className = 'status-message';
-                    authStatus.classList.remove('hidden');
-                }
-            }
-        }
-
-        document.getElementById('googleSignInBtn').addEventListener('click', async () => {
-            try {
-                await requireGoogleAuth();
-                updateAuthUI();
-                showStatus('joinStatus', '✓ Signed in with Google', 'waiting');
-            } catch (error) {
-                console.error('Google sign-in failed:', error);
-                showStatus('joinStatus', 'Google sign-in failed: ' + error.message, 'error');
-            }
-        });
-
-        async function ensureLobbyAuthenticated() {
-            try {
-                await ensureFirebaseInitialized();
-                await requireGoogleAuth();
-                updateAuthUI();
-                return true;
-            } catch (error) {
-                console.error('Lobby auth failed:', error);
-                showStatus('joinStatus', 'Google sign-in is required to access the lobby.', 'error');
-                return false;
-            }
-        }
-
         // Initialize on page load
         window.addEventListener('load', () => {
             console.log("Lobby page loaded");
             if (window.firebase) {
-                updateAuthUI();
-
+                
+                // Check if player was already in a lobby
                 const resumeLobbyId = sessionStorage.getItem('currentLobbyId');
                 if (resumeLobbyId) {
                     resumeLobby(resumeLobbyId);
@@ -636,8 +578,6 @@
         });
 
         async function findPublicMatch() {
-            if (!(await ensureLobbyAuthenticated())) return;
-
             const gameSelect = document.getElementById('gameSelect');
             const usernameInput = document.getElementById('usernameInput');
             const gameType = gameSelect.value ? gameSelect.value.trim() : '';
@@ -695,8 +635,6 @@
         }
 
         async function createPrivateMatch() {
-            if (!(await ensureLobbyAuthenticated())) return;
-
             const gameSelect = document.getElementById('gameSelect');
             const usernameInput = document.getElementById('usernameInput');
             const gameType = gameSelect.value ? gameSelect.value.trim() : '';
@@ -768,8 +706,6 @@
         }
 
         async function joinByKey() {
-            if (!(await ensureLobbyAuthenticated())) return;
-
             const key = document.getElementById('keyInput').value.trim().toUpperCase();
             const usernameInput = document.getElementById('usernameInputJoin');
             const username = usernameInput.value.trim();
@@ -916,8 +852,6 @@
         }
 
         async function addBotToLobby() {
-            if (!(await ensureLobbyAuthenticated())) return;
-
             setButtonLoading('addBotBtn', true);
             try {
                 const botNames = ['Chip', 'Slick', 'Lucky', 'Ace'];
@@ -995,8 +929,6 @@
         }
 
         async function changeGameInLobby() {
-            if (!(await ensureLobbyAuthenticated())) return;
-
             const newGame = document.getElementById('gameSelectInLobby').value;
             
             if (!newGame) {
