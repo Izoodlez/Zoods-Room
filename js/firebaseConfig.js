@@ -29,23 +29,31 @@ function initializeFirebase() {
       console.error('window.firebase is undefined — wrong SDK loaded');
       return false;
     }
-    // Avoid re-init if already initialized
+
     if (!firebase.apps || firebase.apps.length === 0) {
       firebase.initializeApp(firebaseConfig);
     }
-    // set services
+
     auth = firebase.auth();
     db = firebase.database();
-    // anonymous sign-in (returns promise but we handle sync-friendly)
-    auth.signInAnonymously().then((cred) => {
-      currentUser = cred.user;
-      // Persist a simple UUID for this browser session if not present
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user || null;
+      if (user) {
+        playerUUID = sessionStorage.getItem('playerUUID') || generateUUID();
+        sessionStorage.setItem('playerUUID', playerUUID);
+        console.log('Firebase auth restored:', user.uid, 'playerUUID:', playerUUID);
+      } else {
+        console.log('No authenticated Firebase user. Google sign-in required.');
+      }
+    });
+
+    currentUser = auth.currentUser;
+    if (!currentUser) {
       playerUUID = sessionStorage.getItem('playerUUID') || generateUUID();
       sessionStorage.setItem('playerUUID', playerUUID);
-      console.log('Firebase auth OK, uid:', currentUser ? currentUser.uid : 'anon', 'playerUUID:', playerUUID);
-    }).catch((err) => {
-      console.warn('Anonymous sign-in failed:', err);
-    });
+    }
+
     return true;
   } catch (e) {
     console.error('initializeFirebase exception', e);
@@ -53,40 +61,72 @@ function initializeFirebase() {
   }
 }
 
+async function signInWithGoogle() {
+  if (!auth) initializeFirebase();
+  if (!auth) throw new Error('Firebase auth not initialized');
+
+  if (auth.currentUser) {
+    currentUser = auth.currentUser;
+    playerUUID = sessionStorage.getItem('playerUUID') || generateUUID();
+    sessionStorage.setItem('playerUUID', playerUUID);
+    return currentUser;
+  }
+
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({
+    prompt: 'select_account'
+  });
+
+  const result = await auth.signInWithPopup(provider);
+  currentUser = result.user;
+  playerUUID = sessionStorage.getItem('playerUUID') || generateUUID();
+  sessionStorage.setItem('playerUUID', playerUUID);
+
+  console.log('Google sign-in successful:', currentUser.uid, 'playerUUID:', playerUUID);
+  return currentUser;
+}
+
+async function requireGoogleAuth() {
+  if (!auth) initializeFirebase();
+  if (!auth) throw new Error('Firebase auth not initialized');
+
+  if (!auth.currentUser) {
+    await signInWithGoogle();
+  }
+
+  return auth.currentUser;
+}
+
 // Async version - waits for auth to complete
 async function ensureFirebaseInitialized() {
   return new Promise((resolve) => {
-    // If Firebase is already fully initialized, resolve immediately
-    if (db && auth && playerUUID) {
+    if (db && auth) {
       console.log('Firebase already initialized');
       resolve(true);
       return;
     }
 
     console.log('Waiting for Firebase initialization...');
-    
-    // Call initializeFirebase if not done
+
     if (!db || !auth) {
       initializeFirebase();
     }
 
-    // Wait for playerUUID and Firebase services to be set by the auth flow
     let attempts = 0;
     const checkInterval = setInterval(() => {
-      if (db && auth && playerUUID) {
+      if (db && auth) {
         clearInterval(checkInterval);
         console.log('Firebase initialization complete');
         resolve(true);
-      } else if (attempts++ > 100) { // 10 seconds timeout (100 * 100ms)
+      } else if (attempts++ > 100) {
         clearInterval(checkInterval);
         console.warn('Firebase initialization timeout');
-        // Generate playerUUID as fallback
         playerUUID = sessionStorage.getItem('playerUUID') || generateUUID();
         sessionStorage.setItem('playerUUID', playerUUID);
         if (!db) {
           console.error('Firebase db not initialized after timeout');
         }
-        resolve(!!db && !!auth); // Resolve with success if db and auth exist
+        resolve(!!db && !!auth);
       }
     }, 100);
   });
